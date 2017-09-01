@@ -53,13 +53,13 @@ def umount(target):
 
 
 def get_all_mounts():
-    with open("/proc/self/mounts") as f:
+    with open("/proc/self/mounts", 'rb') as f:
         mounts = []
         for l in f:
-            mp = l.split(' ')[1]
+            mp = l.split(b' ')[1]
             # unicode_escape is necessary because moutns with special characters are
             # represented with octal escape codes in 'mounts'
-            mounts.append(mp.encode('utf-8').decode('unicode_escape'))
+            mounts.append(mp.decode('unicode_escape'))
     return mounts
 
 
