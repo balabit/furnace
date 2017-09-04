@@ -4,6 +4,7 @@
 #
 
 import json
+import logging
 import os
 import signal
 import stat
@@ -12,9 +13,9 @@ import sys
 from bake.container.libc import unshare, mount, umount, non_caching_getpid, get_all_mounts, pivot_root, \
     MS_REC, MS_SLAVE, CLONE_NEWPID
 from bake.container.config import NAMESPACES, CONTAINER_MOUNTS, CONTAINER_DEVICE_NODES
-from bake.logger import Logger, setup_logging
+from bake.logger import setup_logging
 
-logger = Logger("container.pid1")
+logger = logging.getLogger("container.pid1")
 
 
 class PID1:

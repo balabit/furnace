@@ -4,6 +4,7 @@
 #
 
 import json
+import logging
 import os
 import signal
 import subprocess
@@ -12,11 +13,10 @@ import sys
 from . import pid1
 from .libc import clone, is_mount_point, CLONE_NEWPID
 
-from bake.logger import Logger
 from bake.mount import BindMountContext
 from bake.utils import hostrun
 
-logger = Logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class ContainerPID1Manager:
@@ -26,7 +26,7 @@ class ContainerPID1Manager:
     def do_exec(self, control_read, control_write):
         logger.debug("Executing {} {}".format(sys.executable, pid1.__file__))
         params = json.dumps({
-            "loglevel": logger.get_log_level(),
+            "loglevel": logging.getLevelName(logger.getEffectiveLevel()),
             "root_dir": self.root_dir,
             "control_read": control_read,
             "control_write": control_write,

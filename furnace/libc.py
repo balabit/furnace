@@ -4,11 +4,10 @@
 #
 
 import ctypes
+import logging
 import os
 
-from bake.logger import Logger
-
-logger = Logger(__name__)
+logger = logging.getLogger(__name__)
 
 libc = ctypes.CDLL("libc.so.6", use_errno=True)
 
