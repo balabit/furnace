@@ -13,7 +13,7 @@ import sys
 from bake.container.libc import unshare, mount, umount, non_caching_getpid, get_all_mounts, pivot_root, \
     MS_REC, MS_SLAVE, CLONE_NEWPID
 from bake.container.config import NAMESPACES, CONTAINER_MOUNTS, CONTAINER_DEVICE_NODES
-from bake.logger import setup_logging
+from bake.logging import setup_logging
 
 logger = logging.getLogger("container.pid1")
 
