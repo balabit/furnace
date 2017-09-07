@@ -10,16 +10,15 @@ import subprocess
 from bake.container.context import ContainerContext
 from bake.container.libc import is_mount_point
 from bake.builders.bootstrapbuilder import BootstrapBuilder
+from bake.buildmanager import BuildManager
 from bake.mount import BindMountContext
 from bake.utils import hostrun
 
 
 @pytest.fixture
 def bootstrap(context):
-    builder = BootstrapBuilder(context=context)
-    if builder.needs_rebuild():
-        with builder.build_context():
-            builder.build()
+    bm = BuildManager(context)
+    builder = bm.build(BootstrapBuilder)
     yield builder
 
 
