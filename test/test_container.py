@@ -4,7 +4,6 @@
 #
 
 import os
-import shutil
 import pytest
 import subprocess
 from bake.container.context import ContainerContext
@@ -39,13 +38,13 @@ def test_container_basic(bootstrap):
 
 def test_container_rootfs_is_not_mountpoint(bootstrap):
     assert not is_mount_point(bootstrap.build_dir)
-    with ContainerContext(bootstrap.build_dir) as cnt:
+    with ContainerContext(bootstrap.build_dir):
         pass
 
 
 def test_container_rootfs_is_mountpoint(bootstrap):
     with BindMountContext(bootstrap.build_dir, bootstrap.build_dir, remove_after_umount=False):
-        with ContainerContext(bootstrap.build_dir) as cnt:
+        with ContainerContext(bootstrap.build_dir):
             pass
 
 

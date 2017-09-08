@@ -76,7 +76,7 @@ class PID1:
             raise ValueError("We are not actually PID1, exiting for safety reasons")
 
         # codecs are loaded dynamically, and won't work when we remount root
-        make_sure_codecs_are_loaded = b'a'.decode('unicode_escape')
+        make_sure_codecs_are_loaded = b'a'.decode('unicode_escape')  # NOQA: F841 local variable 'make_sure_codecs_are_loaded' is assigned to but never used
         os.setsid()
         self.enable_zombie_reaping()
         self.create_namespaces()
