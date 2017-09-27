@@ -66,9 +66,12 @@ class PID1:
 
     def create_namespaces(self):
         unshare_flags = 0
-        for flag in NAMESPACES.values():
+        for name, flag in NAMESPACES.items():
             if flag != CLONE_NEWPID:
-                unshare_flags = unshare_flags | flag
+                if os.path.exists(os.path.join('/proc/self/ns', name)):
+                    unshare_flags = unshare_flags | flag
+                else:
+                    logger.warning("Namespace type {} not supported on this system".format(name))
         unshare(unshare_flags)
 
     def run(self):
