@@ -69,9 +69,10 @@ class ContainerPID1Manager:
 
     def kill(self):
         # Killing pid1 will kill every other process in the context
-        # The context itself will implode wihtout any references,
+        # The context itself will implode without any references,
         # basically cleaning up everything
         os.kill(self.pid, signal.SIGKILL)
+        os.waitpid(self.pid, 0)
 
 
 class ContainerContext:
