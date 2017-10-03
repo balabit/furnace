@@ -9,19 +9,20 @@ import os
 import signal
 import subprocess
 import sys
+from pathlib import Path
 
 from . import pid1
 from .libc import clone, is_mount_point, CLONE_NEWPID
 
 from bake.mount import BindMountContext
-from bake.utils import hostrun
+from bake.utils import hostrun, PathEncoder
 
 logger = logging.getLogger(__name__)
 
 
 class ContainerPID1Manager:
-    def __init__(self, root_dir):
-        self.root_dir = os.path.abspath(root_dir)
+    def __init__(self, root_dir: Path):
+        self.root_dir = root_dir.resolve()
 
     def do_exec(self, control_read, control_write):
         logger.debug("Executing {} {}".format(sys.executable, pid1.__file__))
@@ -30,7 +31,7 @@ class ContainerPID1Manager:
             "root_dir": self.root_dir,
             "control_read": control_read,
             "control_write": control_write,
-        })
+        }, cls=PathEncoder)
 
         os.execl(sys.executable, sys.executable, pid1.__file__, params)
 
@@ -76,8 +77,8 @@ class ContainerPID1Manager:
 
 
 class ContainerContext:
-    def __init__(self, root_dir):
-        self.root_dir = os.path.abspath(root_dir)
+    def __init__(self, root_dir: Path):
+        self.root_dir = root_dir.resolve()
         self.pid1 = ContainerPID1Manager(root_dir)
         self.bind_mount_ctx = None
         pass

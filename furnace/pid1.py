@@ -11,6 +11,7 @@ import stat
 import subprocess
 import sys
 from socket import sethostname
+from pathlib import Path
 
 from bake.container.libc import unshare, mount, umount, non_caching_getpid, get_all_mounts, pivot_root, \
     MS_REC, MS_SLAVE, MS_PRIVATE, CLONE_NEWPID
@@ -21,10 +22,10 @@ logger = logging.getLogger("container.pid1")
 
 
 class PID1:
-    def __init__(self, root_dir, control_read, control_write):
+    def __init__(self, root_dir: Path, control_read, control_write):
         self.control_read = control_read
         self.control_write = control_write
-        self.root_dir = os.path.abspath(root_dir)
+        self.root_dir = root_dir.resolve()
 
     def enable_zombie_reaping(self):
         # We are pid 1, so we have to take care of orphaned processes
@@ -38,12 +39,12 @@ class PID1:
         # SLAVE means that mount events will get inside the container, but
         # mounting something inside will not leak out.
         # Use PRIVATE to not let outside events propagate in
-        mount("none", "/", None, MS_REC | MS_SLAVE, None)
-        old_root_dir = os.path.join(self.root_dir, 'old_root')
-        os.makedirs(old_root_dir, exist_ok=True)
-        os.chdir(self.root_dir)
-        pivot_root('.', 'old_root')
-        mount("none", "/old_root", None, MS_REC | MS_PRIVATE, None)
+        mount(Path("none"), Path("/"), None, MS_REC | MS_SLAVE, None)
+        old_root_dir = self.root_dir.joinpath('old_root')
+        old_root_dir.mkdir(parents=True, exist_ok=True)
+        os.chdir(str(self.root_dir))
+        pivot_root(Path('.'), Path('old_root'))
+        mount(Path("none"), Path("/old_root"), None, MS_REC | MS_PRIVATE, None)
         os.chroot('.')
 
     def mount_defaults(self):
@@ -51,11 +52,11 @@ class PID1:
             options = None
             if "options" in m:
                 options = ",".join(m["options"])
-            os.makedirs(m["destination"], exist_ok=True)
+            m["destination"].mkdir(parents=True, exist_ok=True)
             mount(m["source"], m["destination"], m["type"], m.get("flags", 0), options)
 
     def create_tmpfs_dirs(self):
-        if os.path.exists('/bin/systemd-tmpfiles'):
+        if Path('/bin/systemd-tmpfiles').exists():
             subprocess.check_call(['/bin/systemd-tmpfiles', '--create'])
         else:
             logger.warning(
@@ -65,13 +66,14 @@ class PID1:
 
     def create_default_dev_nodes(self):
         for d in CONTAINER_DEVICE_NODES:
-            os.mknod(os.path.join("/dev", d["name"]), mode=stat.S_IFCHR, device=os.makedev(d["major"], d["minor"]))
+            nodepath = Path("/dev", d["name"])
+            os.mknod(str(nodepath), mode=stat.S_IFCHR, device=os.makedev(d["major"], d["minor"]))
             # A separate chmod is necessary, because mknod (undocumentedly) takes umask into account when creating
-            os.chmod(os.path.join("/dev", d["name"]), 0o666)
+            nodepath.chmod(mode=0o666)
 
     def umount_old_root(self):
-        mounts = [m for m in get_all_mounts() if m.startswith('/old_root')]
-        mounts.sort(key=len, reverse=True)
+        mounts = [m for m in get_all_mounts() if len(m.parts) > 1 and 'old_root' == m.parts[1]]
+        mounts.sort(key=lambda path: len(path.parts), reverse=True)
         for m in mounts:
             umount(m)
         os.rmdir('/old_root')
@@ -80,7 +82,7 @@ class PID1:
         unshare_flags = 0
         for name, flag in NAMESPACES.items():
             if flag != CLONE_NEWPID:
-                if os.path.exists(os.path.join('/proc/self/ns', name)):
+                if Path('/proc/self/ns', name).exists():
                     unshare_flags = unshare_flags | flag
                 else:
                     logger.warning("Namespace type {} not supported on this system".format(name))
@@ -114,5 +116,5 @@ class PID1:
 if __name__ == "__main__":
     args = json.loads(sys.argv[1])
     setup_logging(args['loglevel'])
-    pid1 = PID1(args['root_dir'], args['control_read'], args['control_write'])
+    pid1 = PID1(Path(args['root_dir']), args['control_read'], args['control_write'])
     sys.exit(pid1.run())

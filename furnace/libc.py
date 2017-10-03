@@ -5,7 +5,7 @@
 
 import ctypes
 import logging
-import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -37,34 +37,34 @@ SYSCALL_NUM_CLONE = 56
 SYSCALL_NUM_GETPID = 39
 
 
-def mount(source, target, fstype, flags, data):
+def mount(source: Path, target: Path, fstype, flags, data):
     if fstype is not None:
         fstype = fstype.encode('utf-8')
     if data is not None:
         data = data.encode('utf-8')
-    if libc.mount(source.encode('utf-8'), target.encode('utf-8'), fstype, flags, data) != 0:
+    if libc.mount(str(source).encode('utf-8'), str(target).encode('utf-8'), fstype, flags, data) != 0:
         raise OSError(ctypes.get_errno(), "Mount failed")
 
 
-def umount(target):
-    if libc.umount(target.encode('utf-8')) != 0:
+def umount(target: Path):
+    if libc.umount(str(target).encode('utf-8')) != 0:
         raise OSError(ctypes.get_errno(), "Unmount failed for directory {}".format(target))
 
 
 def get_all_mounts():
-    with open("/proc/self/mounts", 'rb') as f:
+    with Path("/proc/self/mounts").open('rb') as f:
         mounts = []
         for l in f:
             mp = l.split(b' ')[1]
             # unicode_escape is necessary because moutns with special characters are
             # represented with octal escape codes in 'mounts'
-            mounts.append(mp.decode('unicode_escape'))
+            mounts.append(Path(mp.decode('unicode_escape')))
     return mounts
 
 
-def is_mount_point(path):
+def is_mount_point(path: Path):
     # os.path.ismount does not properly detect bind mounts
-    return os.path.abspath(path) in get_all_mounts()
+    return path.absolute() in get_all_mounts()
 
 
 def unshare(flags):
@@ -77,8 +77,8 @@ def setns(fd, flags):
         raise OSError(ctypes.get_errno(), "sqtns failed")
 
 
-def pivot_root(new_root, old_root):
-    if libc.pivot_root(new_root.encode('utf-8'), old_root.encode('utf-8')) != 0:
+def pivot_root(new_root: Path, old_root: Path):
+    if libc.pivot_root(str(new_root).encode('utf-8'), str(old_root).encode('utf-8')) != 0:
         raise OSError(ctypes.get_errno(), "pivot_root failed")
 
 

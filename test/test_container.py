@@ -6,6 +6,8 @@
 import os
 import pytest
 import subprocess
+from pathlib import Path
+
 from bake.container.context import ContainerContext
 from bake.container.libc import is_mount_point
 from bake.builders.bootstrapbuilder import BootstrapBuilder
@@ -48,25 +50,25 @@ def test_container_rootfs_is_mountpoint(bootstrap):
             pass
 
 
-def test_mounts_visible_inside_container(bootstrap, tmpdir):
+def test_mounts_visible_inside_container(bootstrap, tmpdir: Path):
     with ContainerContext(bootstrap.build_dir) as cnt:
-        with tmpdir.join("test_file").open("w") as f:
+        with tmpdir.joinpath("test_file").open("w") as f:
             f.write("Test data")
 
-        with BindMountContext(str(tmpdir), os.path.join(bootstrap.build_dir, 'mounted_after')):
+        with BindMountContext(tmpdir, bootstrap.build_dir.joinpath('mounted_after')):
             output = cnt.run(['cat', '/mounted_after/test_file'], need_output=True)
             assert output == b"Test data"
 
 
-def test_files_made_in_container_visible_outside(bootstrap, tmpdir):
+def test_files_made_in_container_visible_outside(bootstrap):
     with ContainerContext(bootstrap.build_dir) as cnt:
         cnt.run(['dd', 'if=/dev/zero', 'of=/test_file', 'bs=128', 'count=1'])
-        with open(os.path.join(bootstrap.build_dir, 'test_file'), 'rb') as f:
+        with bootstrap.build_dir.joinpath('test_file').open('rb') as f:
             file_data = f.read()
         assert file_data == b'\0' * 128
 
 
-def test_lingering_processes_are_killed(bootstrap, tmpdir):
+def test_lingering_processes_are_killed(bootstrap):
     with ContainerContext(bootstrap.build_dir) as cnt:
         cnt.run(['bash', '-c', 'sleep 31337 >/dev/null 2>/dev/null&'])
         ps_output = hostrun(['ps', 'aux'], need_output=True).decode('utf-8')
@@ -75,7 +77,7 @@ def test_lingering_processes_are_killed(bootstrap, tmpdir):
     assert 'sleep 31337' not in ps_output, 'The sleep should no longer be running'
 
 
-def test_zombies_are_killed(bootstrap, tmpdir):
+def test_zombies_are_killed(bootstrap):
     with ContainerContext(bootstrap.build_dir) as cnt:
         # the || true is needed, otehrwise bash will exec the kill
         try:

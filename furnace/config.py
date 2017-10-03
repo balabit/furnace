@@ -2,6 +2,7 @@
 # Copyright (c) 2006-2017 Balabit
 # All Rights Reserved.
 #
+from pathlib import Path
 
 from .libc import CLONE_NEWPID, CLONE_NEWCGROUP, CLONE_NEWIPC, CLONE_NEWUTS, CLONE_NEWNS, \
     MS_NOSUID, MS_NOEXEC, MS_NODEV, MS_RDONLY, MS_STRICTATIME
@@ -18,12 +19,12 @@ NAMESPACES = {
 
 CONTAINER_MOUNTS = [
     {
-        "destination": "/proc",
+        "destination": Path("/proc"),
         "type": "proc",
         "source": "proc"
     },
     {
-        "destination": "/dev",
+        "destination": Path("/dev"),
         "type": "tmpfs",
         "source": "tmpfs",
         "flags": MS_NOSUID | MS_STRICTATIME,
@@ -33,7 +34,7 @@ CONTAINER_MOUNTS = [
         ]
     },
     {
-        "destination": "/dev/pts",
+        "destination": Path("/dev/pts"),
         "type": "devpts",
         "source": "devpts",
         "flags": MS_NOSUID | MS_NOEXEC,
@@ -45,7 +46,7 @@ CONTAINER_MOUNTS = [
         ]
     },
     {
-        "destination": "/dev/shm",
+        "destination": Path("/dev/shm"),
         "type": "tmpfs",
         "source": "shm",
         "flags": MS_NOSUID | MS_NOEXEC | MS_NODEV,
@@ -55,26 +56,16 @@ CONTAINER_MOUNTS = [
         ]
     },
     {
-        "destination": "/dev/mqueue",
+        "destination": Path("/dev/mqueue"),
         "type": "mqueue",
         "source": "mqueue",
         "flags": MS_NOSUID | MS_NOEXEC | MS_NODEV,
     },
     {
-        "destination": "/sys",
+        "destination": Path("/sys"),
         "type": "sysfs",
         "source": "sysfs",
         "flags": MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_RDONLY,
-    },
-    {
-        "destination": "/run",
-        "type": "tmpfs",
-        "source": "shm",
-        "flags": MS_NOSUID | MS_NOEXEC | MS_NODEV,
-        "options": [
-            "mode=1777",
-            "size=65536k"
-        ]
     },
 ]
 
