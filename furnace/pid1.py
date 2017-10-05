@@ -9,10 +9,11 @@ import os
 import signal
 import stat
 import sys
+from socket import sethostname
 
 from bake.container.libc import unshare, mount, umount, non_caching_getpid, get_all_mounts, pivot_root, \
     MS_REC, MS_SLAVE, CLONE_NEWPID
-from bake.container.config import NAMESPACES, CONTAINER_MOUNTS, CONTAINER_DEVICE_NODES
+from bake.container.config import NAMESPACES, CONTAINER_MOUNTS, CONTAINER_DEVICE_NODES, HOSTNAME
 from bake.logging import setup_logging
 
 logger = logging.getLogger("container.pid1")
@@ -87,6 +88,7 @@ class PID1:
         self.mount_defaults()
         self.create_default_dev_nodes()
         self.umount_old_root()
+        sethostname(HOSTNAME)
 
         os.write(self.control_write, b"RDY")
         logger.debug("Container started")
