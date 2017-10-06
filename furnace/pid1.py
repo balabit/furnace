@@ -12,7 +12,7 @@ import sys
 from socket import sethostname
 
 from bake.container.libc import unshare, mount, umount, non_caching_getpid, get_all_mounts, pivot_root, \
-    MS_REC, MS_SLAVE, CLONE_NEWPID
+    MS_REC, MS_SLAVE, MS_PRIVATE, CLONE_NEWPID
 from bake.container.config import NAMESPACES, CONTAINER_MOUNTS, CONTAINER_DEVICE_NODES, HOSTNAME
 from bake.logging import setup_logging
 
@@ -42,6 +42,7 @@ class PID1:
         os.makedirs(old_root_dir, exist_ok=True)
         os.chdir(self.root_dir)
         pivot_root('.', 'old_root')
+        mount("none", "/old_root", None, MS_REC | MS_PRIVATE, None)
         os.chroot('.')
 
     def mount_defaults(self):
