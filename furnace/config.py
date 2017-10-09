@@ -68,6 +68,16 @@ CONTAINER_MOUNTS = [
         "source": "sysfs",
         "flags": MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_RDONLY,
     },
+    {
+        "destination": Path("/run"),
+        "type": "tmpfs",
+        "source": "shm",
+        "flags": MS_NOSUID | MS_NOEXEC | MS_NODEV,
+        "options": [
+            "mode=1777",
+            "size=65536k"
+        ]
+    },
 ]
 
 CONTAINER_DEVICE_NODES = [
