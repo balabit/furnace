@@ -5,6 +5,7 @@
 
 import os
 import pytest
+import re
 import subprocess
 from pathlib import Path
 
@@ -93,3 +94,17 @@ def test_lock_dirs_are_present(bootstrap):
         cnt.run(['test', '-e', '/var/lock'])
         cnt.run(['test', '-e', '/run/lock'])
         # no assert, because the previous two commands would have thrown an Exception on error
+
+
+def test_networking_is_isolated_when_asked(bootstrap):
+    with ContainerContext(bootstrap.build_dir, isolate_networking=True) as cnt:
+        ip_output = cnt.run(['ip', 'address', 'list'], need_output=True).decode('utf-8')
+        assert re.search("^1: lo", ip_output, flags=re.MULTILINE) is not None, "Loopback interface should be present"
+        assert re.search("^2: ", ip_output, flags=re.MULTILINE) is None, "No other interfaces should be present"
+
+
+def test_networking_is_not_isolated_when_asked(bootstrap):
+    with ContainerContext(bootstrap.build_dir, isolate_networking=False) as cnt:
+        ip_output = cnt.run(['ip', 'address', 'list'], need_output=True).decode('utf-8')
+        assert re.search("^1: lo", ip_output, flags=re.MULTILINE) is not None, "Loopback interface should be present"
+        assert re.search("^2: ", ip_output, flags=re.MULTILINE) is not None, "At least one other interface should be present"

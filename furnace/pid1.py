@@ -14,7 +14,7 @@ from socket import sethostname
 from pathlib import Path
 
 from bake.container.libc import unshare, mount, umount, non_caching_getpid, get_all_mounts, pivot_root, \
-    MS_REC, MS_SLAVE, MS_PRIVATE, CLONE_NEWPID
+    MS_REC, MS_SLAVE, MS_PRIVATE, CLONE_NEWPID, CLONE_NEWNET
 from bake.container.config import NAMESPACES, CONTAINER_MOUNTS, CONTAINER_DEVICE_NODES, HOSTNAME
 from bake.logging import setup_logging
 
@@ -22,10 +22,11 @@ logger = logging.getLogger("container.pid1")
 
 
 class PID1:
-    def __init__(self, root_dir: Path, control_read, control_write):
+    def __init__(self, root_dir: Path, control_read, control_write, isolate_networking):
         self.control_read = control_read
         self.control_write = control_write
         self.root_dir = root_dir.resolve()
+        self.isolate_networking = isolate_networking
 
     def enable_zombie_reaping(self):
         # We are pid 1, so we have to take care of orphaned processes
@@ -81,11 +82,14 @@ class PID1:
     def create_namespaces(self):
         unshare_flags = 0
         for name, flag in NAMESPACES.items():
-            if flag != CLONE_NEWPID:
-                if Path('/proc/self/ns', name).exists():
-                    unshare_flags = unshare_flags | flag
-                else:
-                    logger.warning("Namespace type {} not supported on this system".format(name))
+            if flag == CLONE_NEWPID:
+                continue
+            if flag == CLONE_NEWNET and not self.isolate_networking:
+                continue
+            if Path('/proc/self/ns', name).exists():
+                unshare_flags = unshare_flags | flag
+            else:
+                logger.warning("Namespace type {} not supported on this system".format(name))
         unshare(unshare_flags)
 
     def run(self):
@@ -116,5 +120,5 @@ class PID1:
 if __name__ == "__main__":
     args = json.loads(sys.argv[1])
     setup_logging(args['loglevel'])
-    pid1 = PID1(Path(args['root_dir']), args['control_read'], args['control_write'])
+    pid1 = PID1(Path(args['root_dir']), args['control_read'], args['control_write'], args['isolate_networking'])
     sys.exit(pid1.run())

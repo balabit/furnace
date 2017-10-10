@@ -21,8 +21,9 @@ logger = logging.getLogger(__name__)
 
 
 class ContainerPID1Manager:
-    def __init__(self, root_dir: Path):
+    def __init__(self, root_dir: Path, *, isolate_networking=False):
         self.root_dir = root_dir.resolve()
+        self.isolate_networking = isolate_networking
 
     def do_exec(self, control_read, control_write):
         logger.debug("Executing {} {}".format(sys.executable, pid1.__file__))
@@ -31,6 +32,7 @@ class ContainerPID1Manager:
             "root_dir": self.root_dir,
             "control_read": control_read,
             "control_write": control_write,
+            "isolate_networking": self.isolate_networking,
         }, cls=PathEncoder)
 
         os.execl(sys.executable, sys.executable, pid1.__file__, params)
@@ -77,9 +79,9 @@ class ContainerPID1Manager:
 
 
 class ContainerContext:
-    def __init__(self, root_dir: Path):
+    def __init__(self, root_dir: Path, *, isolate_networking=False):
         self.root_dir = root_dir.resolve()
-        self.pid1 = ContainerPID1Manager(root_dir)
+        self.pid1 = ContainerPID1Manager(root_dir, isolate_networking=isolate_networking)
         self.bind_mount_ctx = None
         pass
 
@@ -101,7 +103,7 @@ class ContainerContext:
     def assemble_nsenter_command(self, cmd):
         # The nsenter command is used instead of reimplementing its functionality in pure python.
         # because util-linux is a reasonable dependency, and actually entering PID namespaces are hard
-        return ['nsenter', '-p', '-m', '-u', '-i', '-t', str(self.pid1.pid)] + cmd
+        return ['nsenter', '-p', '-n', '-m', '-u', '-i', '-t', str(self.pid1.pid)] + cmd
 
     def run(self, cmd, shell=False, **kwargs):
         if shell:
