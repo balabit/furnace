@@ -84,3 +84,10 @@ def test_zombies_are_killed(bootstrap, tmpdir):
             pass
         ps_output = cnt.run(['ps', 'aux'], need_output=True).decode('utf-8')
         assert '<defunct>' not in ps_output, ''
+
+
+def test_lock_dirs_are_present(bootstrap):
+    with ContainerContext(bootstrap.build_dir) as cnt:
+        cnt.run(['test', '-e', '/var/lock'])
+        cnt.run(['test', '-e', '/run/lock'])
+        # no assert, because the previous two commands would have thrown an Exception on error

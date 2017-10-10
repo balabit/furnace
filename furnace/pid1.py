@@ -8,6 +8,7 @@ import logging
 import os
 import signal
 import stat
+import subprocess
 import sys
 from socket import sethostname
 
@@ -53,6 +54,15 @@ class PID1:
             os.makedirs(m["destination"], exist_ok=True)
             mount(m["source"], m["destination"], m["type"], m.get("flags", 0), options)
 
+    def create_tmpfs_dirs(self):
+        if os.path.exists('/bin/systemd-tmpfiles'):
+            subprocess.check_call(['/bin/systemd-tmpfiles', '--create'])
+        else:
+            logger.warning(
+                "Could not run systemd-tmpfiles, because it does not exist. "
+                "/tmp and /run will not be populated."
+            )
+
     def create_default_dev_nodes(self):
         for d in CONTAINER_DEVICE_NODES:
             os.mknod(os.path.join("/dev", d["name"]), mode=stat.S_IFCHR, device=os.makedev(d["major"], d["minor"]))
@@ -88,6 +98,7 @@ class PID1:
         self.setup_root_mount()
         self.mount_defaults()
         self.create_default_dev_nodes()
+        self.create_tmpfs_dirs()
         self.umount_old_root()
         sethostname(HOSTNAME)
 
