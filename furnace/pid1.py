@@ -65,12 +65,24 @@ class PID1:
                 "/tmp and /run will not be populated."
             )
 
+    def create_device_node(self, name, major, minor, mode, *, is_block_device=False):
+        if is_block_device:
+            device_type = stat.S_IFBLK
+        else:
+            device_type = stat.S_IFCHR
+        nodepath = Path("/dev", name)
+        os.mknod(str(nodepath), mode=device_type, device=os.makedev(major, minor))
+        # A separate chmod is necessary, because mknod (undocumentedly) takes umask into account when creating
+        nodepath.chmod(mode=mode)
+
     def create_default_dev_nodes(self):
         for d in CONTAINER_DEVICE_NODES:
-            nodepath = Path("/dev", d["name"])
-            os.mknod(str(nodepath), mode=stat.S_IFCHR, device=os.makedev(d["major"], d["minor"]))
-            # A separate chmod is necessary, because mknod (undocumentedly) takes umask into account when creating
-            nodepath.chmod(mode=0o666)
+            self.create_device_node(d["name"], d["major"], d["minor"], 0o666)
+
+    def create_loop_devices(self):
+        self.create_device_node('loop-control', 10, 237, 0o660)
+        for i in range(8):
+            self.create_device_node('loop{}'.format(i), 7, i, 0o660, is_block_device=True)
 
     def umount_old_root(self):
         mounts = [m for m in get_all_mounts() if len(m.parts) > 1 and 'old_root' == m.parts[1]]
@@ -104,6 +116,7 @@ class PID1:
         self.setup_root_mount()
         self.mount_defaults()
         self.create_default_dev_nodes()
+        self.create_loop_devices()
         self.create_tmpfs_dirs()
         self.umount_old_root()
         sethostname(HOSTNAME)

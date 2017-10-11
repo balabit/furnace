@@ -108,3 +108,13 @@ def test_networking_is_not_isolated_when_asked(bootstrap):
         ip_output = cnt.run(['ip', 'address', 'list'], need_output=True).decode('utf-8')
         assert re.search("^1: lo", ip_output, flags=re.MULTILINE) is not None, "Loopback interface should be present"
         assert re.search("^2: ", ip_output, flags=re.MULTILINE) is not None, "At least one other interface should be present"
+
+
+def test_loop_mounts_work(bootstrap):
+    with ContainerContext(bootstrap.build_dir) as cnt:
+        cnt.run(['dd', 'if=/dev/zero', 'of=/disk.img', 'bs=1M', 'count=10'])
+        cnt.run(['mkfs.ext4', '/disk.img'])
+        bootstrap.build_dir.joinpath('mounted').mkdir()
+        cnt.run(['mount', '-o', 'loop', '/disk.img', '/mounted'])
+        cnt.run(['touch', '/mounted/test.file'])
+        # no assert, because the previous two commands would have thrown an Exception on error
