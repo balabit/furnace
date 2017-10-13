@@ -110,5 +110,11 @@ class ContainerContext:
             cmd = ['bash', '-c', cmd]
         return hostrun(self.assemble_nsenter_command(cmd), **kwargs)
 
-    def interactive_shell(self):
-        subprocess.Popen(self.assemble_nsenter_command(['bash', '-i'])).wait()
+    def interactive_shell(self, node):
+        print()
+        subprocess.Popen(
+            self.assemble_nsenter_command(['bash', '--norc', '--noprofile', '-i']),
+            env={
+                'PS1': 'bake-debug@{} \033[32m\w\033[0m # '.format(node)
+            }
+        ).wait()
