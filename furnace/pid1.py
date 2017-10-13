@@ -58,7 +58,9 @@ class PID1:
 
     def create_tmpfs_dirs(self):
         if Path('/bin/systemd-tmpfiles').exists():
-            subprocess.check_call(['/bin/systemd-tmpfiles', '--create'])
+            for m in CONTAINER_MOUNTS:
+                if m["type"] == "tmpfs":
+                    subprocess.check_call(['/bin/systemd-tmpfiles', '--create', '--prefix', str(m["destination"])])
         else:
             logger.warning(
                 "Could not run systemd-tmpfiles, because it does not exist. "

@@ -9,12 +9,33 @@ import re
 import subprocess
 from pathlib import Path
 
-from bake.container.context import ContainerContext
-from bake.container.libc import is_mount_point
 from bake.builders.bootstrapbuilder import BootstrapBuilder
+from bake.builders.builder import Builder
 from bake.buildmanager import BuildManager
+from bake.container.context import ContainerContext
+from bake.container.mixin import ContainerMixin
+from bake.container.libc import is_mount_point
+from bake.layeredmixin import LayeredMixin
 from bake.mount import BindMountContext
 from bake.utils import hostrun
+
+
+class ContainerTestingBuilder(Builder, LayeredMixin, ContainerMixin):
+    name = 'container-test'
+    description = 'this builder tests the container'
+    deps = (BootstrapBuilder, )
+
+    def get_hash_of_inputs(self):
+        pass
+
+    def get_contexts(self):
+        return (
+            self.overlay_context(),
+            self.ensure_container_context()
+        )
+
+    def build(self):
+        self.container.run(['echo', 'do nothing fancy, but still test "run"'])
 
 
 @pytest.fixture
@@ -118,3 +139,13 @@ def test_loop_mounts_work(bootstrap):
         cnt.run(['mount', '-o', 'loop', '/disk.img', '/mounted'])
         cnt.run(['touch', '/mounted/test.file'])
         # no assert, because the previous two commands would have thrown an Exception on error
+
+
+def test_using_container_does_not_touch_files(context):
+    bm = BuildManager(context)
+    builder = bm.build(ContainerTestingBuilder)
+    # builder.build_dir should only contain changed files, because it is the overlayfs readwrite layer.
+    files_created_during_build = list(builder.build_dir.iterdir())
+    for extra_file in builder.get_extra_files():
+        files_created_during_build.remove(builder.build_dir.joinpath(extra_file))
+    assert [] == files_created_during_build, "No files should have been modified during the build"
