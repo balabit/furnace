@@ -145,7 +145,5 @@ def test_using_container_does_not_touch_files(context):
     bm = BuildManager(context)
     builder = bm.build(ContainerTestingBuilder)
     # builder.build_dir should only contain changed files, because it is the overlayfs readwrite layer.
-    files_created_during_build = list(builder.build_dir.iterdir())
-    for extra_file in builder._get_extra_files():
-        files_created_during_build.remove(builder.build_dir.joinpath(extra_file))
-    assert [] == files_created_during_build, "No files should have been modified during the build"
+    files_created_during_build = sorted([x.relative_to(builder.build_dir) for x in builder.build_dir.iterdir()])
+    assert files_created_during_build == sorted(builder._get_extra_files()), "No files should have been modified during the build"
