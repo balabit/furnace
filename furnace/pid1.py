@@ -60,7 +60,12 @@ class PID1:
         if Path('/bin/systemd-tmpfiles').exists():
             for m in CONTAINER_MOUNTS:
                 if m["type"] == "tmpfs":
-                    subprocess.check_call(['/bin/systemd-tmpfiles', '--create', '--prefix', str(m["destination"])])
+                    tmpfiles_output = subprocess.check_output(
+                        ['/bin/systemd-tmpfiles', '--create', '--prefix', str(m["destination"])],
+                        stderr=subprocess.STDOUT,
+                    )
+                    if tmpfiles_output:
+                        logger.debug("systemd-tmpfiles output: {}".format(tmpfiles_output))
         else:
             logger.warning(
                 "Could not run systemd-tmpfiles, because it does not exist. "
