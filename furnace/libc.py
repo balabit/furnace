@@ -37,6 +37,8 @@ CLONE_NEWNET = 0x40000000
 SYSCALL_NUM_CLONE = 56
 SYSCALL_NUM_GETPID = 39
 
+MNT_DETACH = 2
+
 
 def mount(source: Path, target: Path, fstype, flags, data):
     if fstype is not None:
@@ -47,9 +49,9 @@ def mount(source: Path, target: Path, fstype, flags, data):
         raise OSError(ctypes.get_errno(), "Mount failed")
 
 
-def umount(target: Path):
-    if libc.umount(str(target).encode('utf-8')) != 0:
-        raise OSError(ctypes.get_errno(), "Unmount failed for directory {}".format(target))
+def umount2(target: Path, flags: int):
+    if libc.umount2(str(target).encode('utf-8'), flags) != 0:
+        raise OSError(ctypes.get_errno(), "Failed to unmount directory: {}; flags={}".format(target, flags))
 
 
 def get_all_mounts():

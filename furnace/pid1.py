@@ -13,8 +13,8 @@ import sys
 from socket import sethostname
 from pathlib import Path
 
-from bake.container.libc import unshare, mount, umount, non_caching_getpid, get_all_mounts, pivot_root, \
-    MS_REC, MS_SLAVE, MS_PRIVATE, CLONE_NEWPID, CLONE_NEWNET
+from bake.container.libc import unshare, mount, umount2, non_caching_getpid, pivot_root, \
+    MS_REC, MS_SLAVE, CLONE_NEWPID, CLONE_NEWNET, MNT_DETACH
 from bake.container.config import NAMESPACES, CONTAINER_MOUNTS, CONTAINER_DEVICE_NODES, HOSTNAME
 from bake.logging import setup_logging
 
@@ -45,7 +45,6 @@ class PID1:
         old_root_dir.mkdir(parents=True, exist_ok=True)
         os.chdir(str(self.root_dir))
         pivot_root(Path('.'), Path('old_root'))
-        mount(Path("none"), Path("/old_root"), None, MS_REC | MS_PRIVATE, None)
         os.chroot('.')
 
     def mount_defaults(self):
@@ -92,10 +91,7 @@ class PID1:
             self.create_device_node('loop{}'.format(i), 7, i, 0o660, is_block_device=True)
 
     def umount_old_root(self):
-        mounts = [m for m in get_all_mounts() if len(m.parts) > 1 and 'old_root' == m.parts[1]]
-        mounts.sort(key=lambda path: len(path.parts), reverse=True)
-        for m in mounts:
-            umount(m)
+        umount2('/old_root', MNT_DETACH)
         os.rmdir('/old_root')
 
     def create_namespaces(self):
