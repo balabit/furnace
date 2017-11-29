@@ -34,7 +34,6 @@ class PID1:
         # but this way we signal to the kernel that we will not call waitpid
         # and get rid of zombies automatically
         signal.signal(signal.SIGCHLD, signal.SIG_IGN)
-        pass
 
     def setup_root_mount(self):
         # SLAVE means that mount events will get inside the container, but

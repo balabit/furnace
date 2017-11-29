@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 from . import pid1
-from .libc import clone, is_mount_point, CLONE_NEWPID
+from .libc import is_mount_point, unshare, setns, CLONE_NEWPID
 
 from bake.mount import BindMountContext
 from bake.utils import hostrun, PathEncoder
@@ -50,12 +50,17 @@ class ContainerPID1Manager:
         os.set_inheritable(pipe_child_read, True)
         os.set_inheritable(pipe_child_write, True)
 
-        # We will unshare the other namespaces after the exec,
-        # because if we exec in the new mount namespace, it will open
-        # files in the new namespace's root, and prevent us from umounting
-        # the old root after pivot_root
-        self.pid = clone(signal.SIGCHLD | CLONE_NEWPID)
+        # We unshare (change) the pid namespace here, and other namespaces after
+        # the exec, because if we exec'd in the new mount namespace, it would open
+        # files in the new namespace's root, and prevent us from umounting the old
+        # root after pivot_root. Note that changing the pid namespace affects only
+        # the children (namely, which namespace they will be put in). It is thread
+        # safe because unshare() affects the calling thread only.
+        unshare(CLONE_NEWPID)
+
+        self.pid = os.fork()
         if not self.pid:
+            # this is the child process, will turn into PID1 in the container
             try:
                 # this method will NOT return
                 self.do_exec(pipe_child_read, pipe_child_write)
@@ -63,7 +68,17 @@ class ContainerPID1Manager:
                 # We are the child process, do NOT run parent's __exit__ handlers
                 print(e, file=sys.stderr)
                 os._exit(1)
+
         logger.debug("Container PID1 actual PID: {}".format(self.pid))
+
+        # Reset the pid namespace of the parent process. /proc/self/ns/pid contains
+        # a reference to the original pid namespace of the thread. New child processes
+        # will be placed in this pid namespace after the setns() has restored the original
+        # pid namespace
+        original_pidns_fd = os.open('/proc/self/ns/pid', os.O_RDONLY)
+        setns(original_pidns_fd, CLONE_NEWPID)
+        os.close(original_pidns_fd)
+
         os.close(pipe_child_read)
         os.close(pipe_child_write)
         self.control_read = pipe_parent_read
@@ -83,7 +98,6 @@ class ContainerContext:
         self.root_dir = root_dir.resolve()
         self.pid1 = ContainerPID1Manager(root_dir, isolate_networking=isolate_networking)
         self.bind_mount_ctx = None
-        pass
 
     def __enter__(self):
         if not is_mount_point(self.root_dir):

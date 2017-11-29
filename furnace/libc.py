@@ -77,7 +77,7 @@ def unshare(flags):
 
 def setns(fd, flags):
     if libc.setns(fd, flags) != 0:
-        raise OSError(ctypes.get_errno(), "sqtns failed")
+        raise OSError(ctypes.get_errno(), "setns failed")
 
 
 def pivot_root(new_root: Path, old_root: Path):
