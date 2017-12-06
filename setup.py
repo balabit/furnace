@@ -4,11 +4,7 @@
 # All Rights Reserved.
 #
 import sys
-from pathlib import Path
-
 from setuptools import setup, find_packages
-from setuptools.command.install import install
-
 from furnace.version import get_version
 
 if sys.version_info < (3, 5):
@@ -29,7 +25,7 @@ setup(
     extras_require={
         'dev': dev_requirements
     },
-    package_data={'bake': [
+    package_data={'furnace': [
         'VERSION',
     ]},
     python_requires=">=3.5",

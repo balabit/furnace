@@ -49,6 +49,10 @@ def mount(source: Path, target: Path, fstype, flags, data):
         raise OSError(ctypes.get_errno(), "Mount failed")
 
 
+def umount(target: Path):
+    return umount2(target, 0)
+
+
 def umount2(target: Path, flags: int):
     if libc.umount2(str(target).encode('utf-8'), flags) != 0:
         raise OSError(ctypes.get_errno(), "Failed to unmount directory: {}; flags={}".format(target, flags))

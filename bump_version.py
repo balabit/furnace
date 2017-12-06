@@ -6,7 +6,7 @@
 
 from pathlib import Path
 
-version_file_path = Path(__file__).absolute().parent.joinpath('bake', 'VERSION')
+version_file_path = Path(__file__).absolute().parent.joinpath('furnace', 'VERSION')
 
 
 def main():

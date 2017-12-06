@@ -12,10 +12,9 @@ import sys
 from pathlib import Path
 
 from . import pid1
-from .libc import is_mount_point, unshare, setns, CLONE_NEWPID
+from .libc import unshare, setns, CLONE_NEWPID
 
-from bake.mount import BindMountContext
-from bake.utils import hostrun, PathEncoder
+from .utils import PathEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +41,6 @@ class ContainerPID1Manager:
             raise RuntimeError("Container PID 1 did not send Ready signal")
 
     def start(self):
-        if not is_mount_point(self.root_dir):
-            # The pivot_root we call later only works with mountpoints
-            raise ValueError("Container root must be a mountpoint.")
         pipe_parent_read, pipe_child_write = os.pipe()
         pipe_child_read, pipe_parent_write = os.pipe()
         os.set_inheritable(pipe_child_read, True)
@@ -97,24 +93,18 @@ class ContainerContext:
     def __init__(self, root_dir: Path, *, isolate_networking=False):
         self.root_dir = root_dir.resolve()
         self.pid1 = ContainerPID1Manager(root_dir, isolate_networking=isolate_networking)
-        self.bind_mount_ctx = None
 
     def __enter__(self):
-        if not is_mount_point(self.root_dir):
-            # Container root must be a mountpoint for pivot_root to work
-            self.bind_mount_ctx = BindMountContext(self.root_dir, self.root_dir, remove_after_umount=False)
-            self.bind_mount_ctx.__enter__()
         self.pid1.start()
         return self
 
     def __exit__(self, type, value, traceback):
         self.pid1.kill()
-        if self.bind_mount_ctx:
-            self.bind_mount_ctx.__exit__(type, value, traceback)
-            self.bind_mount_ctx = None
         return False
 
     def assemble_nsenter_command(self, cmd):
+        if not isinstance(cmd, list):
+            raise TypeError("The cmd parameter must be an array")
         # The nsenter command is used instead of reimplementing its functionality in pure python.
         # because util-linux is a reasonable dependency, and actually entering PID namespaces are hard
         return ['nsenter', '-p', '-n', '-m', '-u', '-i', '-t', str(self.pid1.pid)] + cmd
@@ -122,13 +112,13 @@ class ContainerContext:
     def run(self, cmd, shell=False, **kwargs):
         if shell:
             cmd = ['bash', '-c', cmd]
-        return hostrun(self.assemble_nsenter_command(cmd), **kwargs)
+        return subprocess.run(self.assemble_nsenter_command(cmd), **kwargs)
 
     def interactive_shell(self, node):
         print()
-        subprocess.Popen(
+        subprocess.run(
             self.assemble_nsenter_command(['bash', '--norc', '--noprofile', '-i']),
             env={
-                'PS1': 'bake-debug@{} \033[32m\w\033[0m # '.format(node)
+                'PS1': 'furnace-debug@{} \033[32m\w\033[0m # '.format(node)
             }
-        ).wait()
+        )
