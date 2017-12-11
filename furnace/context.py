@@ -26,8 +26,8 @@ import sys
 from pathlib import Path
 
 from . import pid1
+from .config import NAMESPACES
 from .libc import unshare, setns, CLONE_NEWPID
-
 from .utils import PathEncoder
 
 logger = logging.getLogger(__name__)
@@ -103,35 +103,73 @@ class ContainerPID1Manager:
         os.waitpid(self.pid, 0)
 
 
+class SetnsContext:
+    def __init__(self, pid):
+        self.pid = pid
+        # we open and close the ns file descriptors in the constructor
+        # and 'destructor' for two reasons:
+        # - if the context is used more than one time, it saves us the file opening
+        #   neither the original ns, nor the container's ns is expected to change
+        #   during the lifetime of this object
+        # - we have to do it in a separate step from setns() calls, because after
+        #   a mount namespace change, the next open might not work
+        self.orig_fds = []
+        self.new_fds = []
+        for ns_name, ns_flag in NAMESPACES.items():
+            orig_ns_fd = os.open('/proc/self/ns/{}'.format(ns_name), os.O_RDONLY)
+            new_ns_fd = os.open('/proc/{}/ns/{}'.format(self.pid, ns_name), os.O_RDONLY)
+            self.orig_fds.append((orig_ns_fd, ns_flag))
+            self.new_fds.append((new_ns_fd, ns_flag))
+
+    def __del__(self):
+        for fd, _ in self.orig_fds + self.new_fds:
+            os.close(fd)
+
+    def __enter__(self):
+        self.orig_cwd = os.getcwd()
+        try:
+            for new_ns_fd, ns_flag in self.new_fds:
+                setns(new_ns_fd, ns_flag)
+        except Exception:
+            self.__exit__(*sys.exc_info())
+            raise
+        return self
+
+    def __exit__(self, type, value, traceback):
+        for orig_ns_fd, ns_flag in self.orig_fds:
+            setns(orig_ns_fd, ns_flag)
+        os.chdir(self.orig_cwd)
+        return False
+
+
 class ContainerContext:
     def __init__(self, root_dir: Path, *, isolate_networking=False):
         self.root_dir = root_dir.resolve()
         self.pid1 = ContainerPID1Manager(root_dir, isolate_networking=isolate_networking)
+        self.setns_context = None
 
     def __enter__(self):
         self.pid1.start()
+        self.setns_context = SetnsContext(self.pid1.pid)
         return self
 
     def __exit__(self, type, value, traceback):
+        self.setns_context = None
         self.pid1.kill()
         return False
 
-    def assemble_nsenter_command(self, cmd):
-        if not isinstance(cmd, list):
-            raise TypeError("The cmd parameter must be an array")
-        # The nsenter command is used instead of reimplementing its functionality in pure python.
-        # because util-linux is a reasonable dependency, and actually entering PID namespaces are hard
-        return ['nsenter', '-p', '-n', '-m', '-u', '-i', '-t', str(self.pid1.pid)] + cmd
+    def run(self, *args, **kwargs):
+        with self.setns_context:
+            return subprocess.run(*args, **kwargs)
 
-    def run(self, cmd, shell=False, **kwargs):
-        if shell:
-            cmd = ['bash', '-c', cmd]
-        return subprocess.run(self.assemble_nsenter_command(cmd), **kwargs)
+    def Popen(self, *args, **kwargs):
+        with self.setns_context:
+            return subprocess.Popen(*args, **kwargs)
 
     def interactive_shell(self, node):
         print()
-        subprocess.run(
-            self.assemble_nsenter_command(['bash', '--norc', '--noprofile', '-i']),
+        self.run(
+            ['bash', '--norc', '--noprofile', '-i'],
             env={
                 'PS1': 'furnace-debug@{} \033[32m\w\033[0m # '.format(node)
             }
