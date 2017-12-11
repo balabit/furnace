@@ -169,11 +169,11 @@ class ContainerContext:
         with self.setns_context:
             return subprocess.Popen(*args, **kwargs)
 
-    def interactive_shell(self, node):
+    def interactive_shell(self, virtual_hostname='container'):
         print()
         self.run(
             ['bash', '--norc', '--noprofile', '-i'],
             env={
-                'PS1': 'furnace-debug@{} \033[32m\w\033[0m # '.format(node)
+                'PS1': 'furnace-debug@{} \033[32m\w\033[0m # '.format(virtual_hostname)
             }
         )
