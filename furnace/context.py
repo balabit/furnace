@@ -24,6 +24,7 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
+from typing import Union
 
 from . import pid1
 from .config import NAMESPACES
@@ -143,7 +144,9 @@ class SetnsContext:
 
 
 class ContainerContext:
-    def __init__(self, root_dir: Path, *, isolate_networking=False):
+    def __init__(self, root_dir: Union[str, Path], *, isolate_networking=False):
+        if not isinstance(root_dir, Path):
+            root_dir = Path(root_dir)
         self.root_dir = root_dir.resolve()
         self.pid1 = ContainerPID1Manager(root_dir, isolate_networking=isolate_networking)
         self.setns_context = None
