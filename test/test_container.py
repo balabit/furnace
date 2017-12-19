@@ -21,6 +21,7 @@ import os
 import pytest
 import re
 import subprocess
+import threading
 from pathlib import Path
 
 from furnace.context import ContainerContext
@@ -152,3 +153,34 @@ def test_using_container_does_not_touch_files(debootstrapped_dir, tmpdir_factory
             cnt.run(["/bin/ls", "/"], check=True)
     modified_files = list(overlay_rwdir.iterdir())
     assert len(modified_files) == 0, "No files should have been modified because of container run"
+
+
+class ThreadForTesting(threading.Thread):
+    def __init__(self):
+        super().__init__(name='container-test-ing-thread', daemon=True)
+        self.stopme = False
+
+    def run(self):
+        # This thread is intentionally busy to test for
+        # context-switch race conditions
+        lcg = 1
+        while self.stopme:
+            lcg = (lcg * 1234567 + 1) % 87654321
+
+    def stop(self):
+        self.stopme = True
+        self.join()
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.stop()
+
+
+def test_thread_support(rootfs_for_testing):
+    with ThreadForTesting():
+        with ContainerContext(rootfs_for_testing) as cnt:
+            cnt.run(['echo', 'Hello world'])
+            cnt.Popen(['echo', 'Hello Popen']).wait()

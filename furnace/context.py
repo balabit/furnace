@@ -116,30 +116,38 @@ class SetnsContext:
         #   a mount namespace change, the next open might not work
         self.orig_fds = []
         self.new_fds = []
+        self.orig_pidns = None
+        self.new_pidns = None
         for ns_name, ns_flag in NAMESPACES.items():
             orig_ns_fd = os.open('/proc/self/ns/{}'.format(ns_name), os.O_RDONLY)
             new_ns_fd = os.open('/proc/{}/ns/{}'.format(self.pid, ns_name), os.O_RDONLY)
-            self.orig_fds.append((orig_ns_fd, ns_flag))
-            self.new_fds.append((new_ns_fd, ns_flag))
+            if ns_flag == CLONE_NEWPID:
+                self.orig_pidns = orig_ns_fd
+                self.new_pidns = new_ns_fd
+            else:
+                self.orig_fds.append((orig_ns_fd, ns_flag))
+                self.new_fds.append((new_ns_fd, ns_flag))
 
     def __del__(self):
         for fd, _ in self.orig_fds + self.new_fds:
             os.close(fd)
+        os.close(self.orig_pidns)
+        os.close(self.new_pidns)
 
     def __enter__(self):
-        self.orig_cwd = os.getcwd()
         try:
-            for new_ns_fd, ns_flag in self.new_fds:
-                setns(new_ns_fd, ns_flag)
+            setns(self.new_pidns, CLONE_NEWPID)
         except Exception:
             self.__exit__(*sys.exc_info())
             raise
         return self
 
+    def post_fork(self):
+        for new_ns_fd, ns_flag in self.new_fds:
+            setns(new_ns_fd, ns_flag)
+
     def __exit__(self, type, value, traceback):
-        for orig_ns_fd, ns_flag in self.orig_fds:
-            setns(orig_ns_fd, ns_flag)
-        os.chdir(self.orig_cwd)
+        setns(self.orig_pidns, CLONE_NEWPID)
         return False
 
 
@@ -163,11 +171,11 @@ class ContainerContext:
 
     def run(self, *args, **kwargs):
         with self.setns_context:
-            return subprocess.run(*args, **kwargs)
+            return subprocess.run(*args, **kwargs, preexec_fn=self.setns_context.post_fork)
 
     def Popen(self, *args, **kwargs):
         with self.setns_context:
-            return subprocess.Popen(*args, **kwargs)
+            return subprocess.Popen(*args, **kwargs, preexec_fn=self.setns_context.post_fork)
 
     def interactive_shell(self, virtual_hostname='container'):
         print()
