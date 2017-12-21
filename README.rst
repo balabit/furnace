@@ -36,9 +36,12 @@ beforehand.
 Dependencies
 ~~~~~~~~~~~~
 
-The only dependencies are: \* Python3.5+ \* Linux kernel 2.6.24+ \* A
-libc that implements setns() and nsenter() (that’s basically any libc
-released after 2007)
+The only dependencies are:
+
+- Python3.5+
+- Linux kernel 2.6.24+
+- A libc that implements setns() and nsenter() (that’s basically any
+  libc released after 2007)
 
 Example
 ~~~~~~~
