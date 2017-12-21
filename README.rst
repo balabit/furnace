@@ -138,6 +138,6 @@ License
 -------
 
 This project is licensed under the GNU LGPLv2.1 License - see the
-`COPYING`_ for details
+`LICENSE.txt`_ for details
 
-.. _COPYING: COPYING
+.. _LICENSE.txt: LICENSE.txt
