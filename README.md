@@ -96,4 +96,4 @@ Please make sure at least these pass before submitting a PR.
 
 ## License
 
-This project is licensed under the GNU LGPLv2.1 License - see the [COPYING.md](COPYING.md) for details
+This project is licensed under the GNU LGPLv2.1 License - see the [COPYING](COPYING) for details
