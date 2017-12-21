@@ -15,7 +15,14 @@ Usage
 Installation
 ~~~~~~~~~~~~
 
-Running the following commands will install furnace to your system.
+You can either install it with pip:
+
+::
+
+    pip3 install furnace
+
+Or if you want, the following commands will install the bleeding-edge
+version of furnace to your system.
 
 ::
 
@@ -23,8 +30,8 @@ Running the following commands will install furnace to your system.
     cd furnace
     python3 setup.py install
 
-You can of course install it into a virtualenv, if you activate it
-beforehand
+This will of course install it into a virtualenv, if you activate it
+beforehand.
 
 Dependencies
 ~~~~~~~~~~~~
