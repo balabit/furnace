@@ -1,6 +1,20 @@
 #
-# Copyright (c) 2006-2017 Balabit
-# All Rights Reserved.
+# Copyright (c) 2016-2017 Balabit
+#
+# This file is part of Furnace.
+#
+# Furnace is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# Furnace is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with Furnace.  If not, see <http://www.gnu.org/licenses/>.
 #
 
 import json
@@ -13,10 +27,9 @@ import sys
 from socket import sethostname
 from pathlib import Path
 
-from bake.container.libc import unshare, mount, umount2, non_caching_getpid, pivot_root, \
-    MS_REC, MS_SLAVE, CLONE_NEWPID, CLONE_NEWNET, MNT_DETACH
-from bake.container.config import NAMESPACES, CONTAINER_MOUNTS, CONTAINER_DEVICE_NODES, HOSTNAME
-from bake.logging import setup_logging
+from furnace.libc import unshare, mount, umount2, non_caching_getpid, pivot_root, is_mount_point, \
+    MS_BIND, MS_REC, MS_SLAVE, CLONE_NEWPID, CLONE_NEWNET, MNT_DETACH
+from furnace.config import NAMESPACES, CONTAINER_MOUNTS, CONTAINER_DEVICE_NODES, HOSTNAME
 
 logger = logging.getLogger("container.pid1")
 
@@ -40,6 +53,8 @@ class PID1:
         # mounting something inside will not leak out.
         # Use PRIVATE to not let outside events propagate in
         mount(Path("none"), Path("/"), None, MS_REC | MS_SLAVE, None)
+        if not is_mount_point(self.root_dir):
+            mount(self.root_dir, self.root_dir, None, MS_BIND, None)
         old_root_dir = self.root_dir.joinpath('old_root')
         old_root_dir.mkdir(parents=True, exist_ok=True)
         os.chdir(str(self.root_dir))
@@ -134,6 +149,5 @@ class PID1:
 
 if __name__ == "__main__":
     args = json.loads(sys.argv[1])
-    setup_logging(args['loglevel'])
     pid1 = PID1(Path(args['root_dir']), args['control_read'], args['control_write'], args['isolate_networking'])
     sys.exit(pid1.run())

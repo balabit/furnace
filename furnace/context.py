@@ -1,6 +1,20 @@
 #
-# Copyright (c) 2006-2017 Balabit
-# All Rights Reserved.
+# Copyright (c) 2016-2017 Balabit
+#
+# This file is part of Furnace.
+#
+# Furnace is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# Furnace is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with Furnace.  If not, see <http://www.gnu.org/licenses/>.
 #
 
 import json
@@ -10,12 +24,12 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
+from typing import Union
 
 from . import pid1
-from .libc import is_mount_point, unshare, setns, CLONE_NEWPID
-
-from bake.mount import BindMountContext
-from bake.utils import hostrun, PathEncoder
+from .config import NAMESPACES
+from .libc import unshare, setns, CLONE_NEWPID
+from .utils import PathEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +56,6 @@ class ContainerPID1Manager:
             raise RuntimeError("Container PID 1 did not send Ready signal")
 
     def start(self):
-        if not is_mount_point(self.root_dir):
-            # The pivot_root we call later only works with mountpoints
-            raise ValueError("Container root must be a mountpoint.")
         pipe_parent_read, pipe_child_write = os.pipe()
         pipe_child_read, pipe_parent_write = os.pipe()
         os.set_inheritable(pipe_child_read, True)
@@ -93,42 +104,76 @@ class ContainerPID1Manager:
         os.waitpid(self.pid, 0)
 
 
-class ContainerContext:
-    def __init__(self, root_dir: Path, *, isolate_networking=False):
-        self.root_dir = root_dir.resolve()
-        self.pid1 = ContainerPID1Manager(root_dir, isolate_networking=isolate_networking)
-        self.bind_mount_ctx = None
+class SetnsContext:
+    def __init__(self, pid):
+        self.pid = pid
+        # we open and close the ns file descriptors in the constructor
+        # and 'destructor' for two reasons:
+        # - if the context is used more than one time, it saves us the file opening
+        #   neither the original ns, nor the container's ns is expected to change
+        #   during the lifetime of this object
+        # - we have to do it in a separate step from setns() calls, because after
+        #   a mount namespace change, the next open might not work
+        self.orig_fds = []
+        self.new_fds = []
+        for ns_name, ns_flag in NAMESPACES.items():
+            orig_ns_fd = os.open('/proc/self/ns/{}'.format(ns_name), os.O_RDONLY)
+            new_ns_fd = os.open('/proc/{}/ns/{}'.format(self.pid, ns_name), os.O_RDONLY)
+            self.orig_fds.append((orig_ns_fd, ns_flag))
+            self.new_fds.append((new_ns_fd, ns_flag))
+
+    def __del__(self):
+        for fd, _ in self.orig_fds + self.new_fds:
+            os.close(fd)
 
     def __enter__(self):
-        if not is_mount_point(self.root_dir):
-            # Container root must be a mountpoint for pivot_root to work
-            self.bind_mount_ctx = BindMountContext(self.root_dir, self.root_dir, remove_after_umount=False)
-            self.bind_mount_ctx.__enter__()
-        self.pid1.start()
+        self.orig_cwd = os.getcwd()
+        try:
+            for new_ns_fd, ns_flag in self.new_fds:
+                setns(new_ns_fd, ns_flag)
+        except Exception:
+            self.__exit__(*sys.exc_info())
+            raise
         return self
 
     def __exit__(self, type, value, traceback):
-        self.pid1.kill()
-        if self.bind_mount_ctx:
-            self.bind_mount_ctx.__exit__(type, value, traceback)
-            self.bind_mount_ctx = None
+        for orig_ns_fd, ns_flag in self.orig_fds:
+            setns(orig_ns_fd, ns_flag)
+        os.chdir(self.orig_cwd)
         return False
 
-    def assemble_nsenter_command(self, cmd):
-        # The nsenter command is used instead of reimplementing its functionality in pure python.
-        # because util-linux is a reasonable dependency, and actually entering PID namespaces are hard
-        return ['nsenter', '-p', '-n', '-m', '-u', '-i', '-t', str(self.pid1.pid)] + cmd
 
-    def run(self, cmd, shell=False, **kwargs):
-        if shell:
-            cmd = ['bash', '-c', cmd]
-        return hostrun(self.assemble_nsenter_command(cmd), **kwargs)
+class ContainerContext:
+    def __init__(self, root_dir: Union[str, Path], *, isolate_networking=False):
+        if not isinstance(root_dir, Path):
+            root_dir = Path(root_dir)
+        self.root_dir = root_dir.resolve()
+        self.pid1 = ContainerPID1Manager(root_dir, isolate_networking=isolate_networking)
+        self.setns_context = None
 
-    def interactive_shell(self, node):
+    def __enter__(self):
+        self.pid1.start()
+        self.setns_context = SetnsContext(self.pid1.pid)
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.setns_context = None
+        self.pid1.kill()
+        return False
+
+    def run(self, *args, **kwargs):
+        with self.setns_context:
+            return subprocess.run(*args, **kwargs)
+
+    def Popen(self, *args, **kwargs):
+        with self.setns_context:
+            return subprocess.Popen(*args, **kwargs)
+
+    def interactive_shell(self, virtual_hostname='container'):
         print()
-        subprocess.Popen(
-            self.assemble_nsenter_command(['bash', '--norc', '--noprofile', '-i']),
+        self.run(
+            ['bash', '--norc', '--noprofile', '-i'],
             env={
-                'PS1': 'bake-debug@{} \033[32m\w\033[0m # '.format(node)
+                'PS1': 'furnace-debug@{} \033[32m\w\033[0m # '.format(virtual_hostname)
             }
-        ).wait()
+        )
