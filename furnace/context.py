@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Furnace.  If not, see <http://www.gnu.org/licenses/>.
 #
-
+import contextlib
 import json
 import logging
 import os
@@ -24,12 +24,12 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
-from typing import Union
+from typing import Union, List
 
 from . import pid1
-from .config import NAMESPACES
+from .config import NAMESPACES, HOST_NETWORK_BIND_MOUNTS, BindMount
 from .libc import unshare, setns, CLONE_NEWPID
-from .utils import PathEncoder
+from .utils import PathEncoder, BindMountContext
 
 logger = logging.getLogger(__name__)
 
@@ -152,20 +152,46 @@ class SetnsContext:
 
 
 class ContainerContext:
-    def __init__(self, root_dir: Union[str, Path], *, isolate_networking=False):
+    def __init__(self, root_dir: Union[str, Path], *, isolate_networking: bool=False, bind_mounts: List[BindMount]=None):
         if not isinstance(root_dir, Path):
             root_dir = Path(root_dir)
         self.root_dir = root_dir.resolve()
+        self.bind_mounts = bind_mounts
+        if self.bind_mounts is None:
+            self.bind_mounts = []
+        if not isolate_networking:
+           self.bind_mounts.extend(HOST_NETWORK_BIND_MOUNTS)
         self.pid1 = ContainerPID1Manager(root_dir, isolate_networking=isolate_networking)
         self.setns_context = None
+        self.bind_mount_contexts = None
+
+    def create_target(self, source, destination):
+        if source.is_file():
+            if destination.is_symlink():
+                destination.unlink()
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.touch()
+        else:
+            destination.mkdir(parents=True, exist_ok=True)
 
     def __enter__(self):
         self.pid1.start()
         self.setns_context = SetnsContext(self.pid1.pid)
+        self.bind_mount_contexts = contextlib.ExitStack()
+        for bind_mount in self.bind_mounts:
+            self.create_target(bind_mount.source, self.root_dir.joinpath(bind_mount.destination))
+            self.bind_mount_contexts.enter_context(BindMountContext(
+                bind_mount.source,
+                self.root_dir.joinpath(bind_mount.destination),
+                bind_mount.readonly
+            ))
         return self
 
     def __exit__(self, type, value, traceback):
         self.setns_context = None
+        if self.bind_mount_contexts:
+            self.bind_mount_contexts.__exit__(type, value, traceback)
+            self.bind_mount_contexts = None
         self.pid1.kill()
         return False
 

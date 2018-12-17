@@ -26,6 +26,7 @@ from .libc import CLONE_NEWPID, CLONE_NEWCGROUP, CLONE_NEWIPC, CLONE_NEWUTS, CLO
 
 Mount = namedtuple('Mount', ['destination', 'type', 'source', 'flags', 'options'])
 DeviceNode = namedtuple('DeviceNode', ['name', 'major', 'minor'])
+BindMount = namedtuple('BindMount', ['source', 'destination', 'readonly'])
 
 
 HOSTNAME = 'localhost'
@@ -135,5 +136,13 @@ CONTAINER_DEVICE_NODES = [
         name="urandom",
         major=1,
         minor=9,
+    ),
+]
+
+HOST_NETWORK_BIND_MOUNTS = [
+    BindMount(
+        source=Path('/etc/resolv.conf'),            # absolute path on host machine
+        destination=Path('etc', 'resolv.conf'),     # relative path in container
+        readonly=True,
     ),
 ]

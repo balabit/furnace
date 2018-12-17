@@ -144,15 +144,27 @@ def test_loop_mounts_work(rootfs_for_testing):
         # no assert, because the previous two commands would have thrown an Exception on error
 
 
-def test_using_container_does_not_touch_files(debootstrapped_dir, tmpdir_factory):
+def test_using_container_does_not_touch_files_if_network_isolated(debootstrapped_dir, tmpdir_factory):
     overlay_workdir = Path(tmpdir_factory.mktemp('overlay_work'))
     overlay_rwdir = Path(tmpdir_factory.mktemp('overlay_rw'))
     overlay_mounted = Path(tmpdir_factory.mktemp('overlay_mount'))
     with OverlayfsMountContext([debootstrapped_dir], overlay_rwdir, overlay_workdir, overlay_mounted):
-        with ContainerContext(overlay_mounted) as cnt:
+        with ContainerContext(overlay_mounted, isolate_networking=True) as cnt:
             cnt.run(["/bin/ls", "/"], check=True)
+
     modified_files = list(overlay_rwdir.iterdir())
-    assert len(modified_files) == 0, "No files should have been modified because of container run"
+    assert len(modified_files) == 0, "No files should have been modified because of container run if network isolated"
+
+
+def test_using_container_with_host_network(rootfs_for_testing, tmpdir_factory):
+    host_resolvconf_content = Path('/etc/resolv.conf').read_bytes()
+    with ContainerContext(rootfs_for_testing) as cnt:
+        cnt.run(["/bin/ls", "/"], check=True)
+        container_resolvconf_content = rootfs_for_testing.joinpath('etc', 'resolv.conf').read_bytes()
+
+    assert host_resolvconf_content == container_resolvconf_content, \
+        "The content of '/etc/resolv.conf' of the host machine should be equal to '/etc/resolv.conf' of the container " \
+        "if host networking is used"
 
 
 class ThreadForTesting(threading.Thread):
