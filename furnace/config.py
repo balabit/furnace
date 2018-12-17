@@ -17,10 +17,16 @@
 # along with Furnace.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+from collections import namedtuple
+
 from pathlib import Path
 
 from .libc import CLONE_NEWPID, CLONE_NEWCGROUP, CLONE_NEWIPC, CLONE_NEWUTS, CLONE_NEWNS, CLONE_NEWNET, \
     MS_NOSUID, MS_NOEXEC, MS_NODEV, MS_RDONLY, MS_STRICTATIME
+
+Mount = namedtuple('Mount', ['destination', 'type', 'source', 'flags', 'options'])
+DeviceNode = namedtuple('DeviceNode', ['name', 'major', 'minor'])
+
 
 HOSTNAME = 'localhost'
 
@@ -34,96 +40,100 @@ NAMESPACES = {
 }
 
 CONTAINER_MOUNTS = [
-    {
-        "destination": Path("/proc"),
-        "type": "proc",
-        "source": "proc"
-    },
-    {
-        "destination": Path("/dev"),
-        "type": "tmpfs",
-        "source": "tmpfs",
-        "flags": MS_NOSUID | MS_STRICTATIME,
-        "options": [
+    Mount(
+        destination=Path("/proc"),
+        type="proc",
+        source="proc",
+        flags=0,
+        options=None,
+    ),
+    Mount(
+        destination=Path("/dev"),
+        type="tmpfs",
+        source="tmpfs",
+        flags=MS_NOSUID | MS_STRICTATIME,
+        options=[
             "mode=755",
-            "size=65536k"
-        ]
-    },
-    {
-        "destination": Path("/dev/pts"),
-        "type": "devpts",
-        "source": "devpts",
-        "flags": MS_NOSUID | MS_NOEXEC,
-        "options": [
+            "size=65536k",
+        ],
+    ),
+    Mount(
+        destination=Path("/dev/pts"),
+        type="devpts",
+        source="devpts",
+        flags=MS_NOSUID | MS_NOEXEC,
+        options=[
             "newinstance",
             "ptmxmode=0666",
             "mode=0620",
-            "gid=5"
-        ]
-    },
-    {
-        "destination": Path("/dev/shm"),
-        "type": "tmpfs",
-        "source": "shm",
-        "flags": MS_NOSUID | MS_NOEXEC | MS_NODEV,
-        "options": [
+            "gid=5",
+        ],
+    ),
+    Mount(
+        destination=Path("/dev/shm"),
+        type="tmpfs",
+        source="shm",
+        flags=MS_NOSUID | MS_NOEXEC | MS_NODEV,
+        options=[
             "mode=1777",
-            "size=65536k"
-        ]
-    },
-    {
-        "destination": Path("/dev/mqueue"),
-        "type": "mqueue",
-        "source": "mqueue",
-        "flags": MS_NOSUID | MS_NOEXEC | MS_NODEV,
-    },
-    {
-        "destination": Path("/sys"),
-        "type": "sysfs",
-        "source": "sysfs",
-        "flags": MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_RDONLY,
-    },
-    {
-        "destination": Path("/run"),
-        "type": "tmpfs",
-        "source": "shm",
-        "flags": MS_NOSUID | MS_NOEXEC | MS_NODEV,
-        "options": [
+            "size=65536k",
+        ],
+    ),
+    Mount(
+        destination=Path("/dev/mqueue"),
+        type="mqueue",
+        source="mqueue",
+        flags=MS_NOSUID | MS_NOEXEC | MS_NODEV,
+        options=None,
+    ),
+    Mount(
+        destination=Path("/sys"),
+        type="sysfs",
+        source="sysfs",
+        flags=MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_RDONLY,
+        options=None,
+    ),
+    Mount(
+        destination=Path("/run"),
+        type="tmpfs",
+        source="shm",
+        flags=MS_NOSUID | MS_NOEXEC | MS_NODEV,
+        options=[
             "mode=1777",
-            "size=65536k"
-        ]
-    },
+            "size=65536k",
+        ],
+    ),
 ]
 
 CONTAINER_DEVICE_NODES = [
-    {
-        "name": "null",
-        "major": 1,
-        "minor": 3,
-    },
-    {
-        "name": "zero",
-        "major": 1,
-        "minor": 5,
-    },
-    {
-        "name": "full",
-        "major": 1,
-        "minor": 7,
-    },
-    {
-        "name": "tty",
-        "major": 5,
-        "minor": 0,
-    },
-    {
-        "name": "random",
-        "major": 1,
-        "minor": 8,
-    },
-    {
-        "name": "urandom",
-        "major": 1,
-        "minor": 9,
-    },
+    DeviceNode(
+        name="null",
+        major=1,
+        minor=3,
+    ),
+    DeviceNode(
+        name="zero",
+        major=1,
+        minor=5,
+    ),
+    DeviceNode(
+        name="full",
+        major=1,
+        minor=7,
+    ),
+    DeviceNode(
+        name="tty",
+        major=5,
+        minor=0,
+    ),
+    DeviceNode(
+        name="random",
+        major=1,
+        minor=8,
+    ),
+    DeviceNode(
+        name="urandom",
+        major=1,
+        minor=9,
+    ),
 ]

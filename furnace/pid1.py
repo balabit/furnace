@@ -64,17 +64,17 @@ class PID1:
     def mount_defaults(self):
         for m in CONTAINER_MOUNTS:
             options = None
-            if "options" in m:
-                options = ",".join(m["options"])
-            m["destination"].mkdir(parents=True, exist_ok=True)
-            mount(m["source"], m["destination"], m["type"], m.get("flags", 0), options)
+            if m.options:
+                options = ",".join(m.options)
+            m.destination.mkdir(parents=True, exist_ok=True)
+            mount(m.source, m.destination, m.type, m.flags, options)
 
     def create_tmpfs_dirs(self):
         if Path('/bin/systemd-tmpfiles').exists():
             for m in CONTAINER_MOUNTS:
-                if m["type"] == "tmpfs":
+                if m.type == "tmpfs":
                     tmpfiles_output = subprocess.check_output(
-                        ['/bin/systemd-tmpfiles', '--create', '--prefix', str(m["destination"])],
+                        ['/bin/systemd-tmpfiles', '--create', '--prefix', str(m.destination)],
                         stderr=subprocess.STDOUT,
                     )
                     if tmpfiles_output:
@@ -97,7 +97,7 @@ class PID1:
 
     def create_default_dev_nodes(self):
         for d in CONTAINER_DEVICE_NODES:
-            self.create_device_node(d["name"], d["major"], d["minor"], 0o666)
+            self.create_device_node(d.name, d.major, d.minor, 0o666)
 
     def create_loop_devices(self):
         self.create_device_node('loop-control', 10, 237, 0o660)
