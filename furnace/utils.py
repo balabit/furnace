@@ -22,7 +22,7 @@ import logging
 from json import JSONEncoder
 from pathlib import Path
 
-from .libc import mount, umount, umount2, MS_BIND, MNT_DETACH
+from .libc import mount, umount, umount2, MS_BIND, MNT_DETACH, MS_RDONLY
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +64,15 @@ class MountContext(abc.ABC):
 
 
 class BindMountContext(MountContext):
+    def __init__(self, source, destination, read_only=False):
+        super().__init__(source, destination)
+        self.read_only = read_only
+
     def get_mount_parameters(self):
-        return None, MS_BIND, None
+        flags = MS_BIND
+        if self.read_only:
+            flags |= MS_RDONLY
+        return None, flags, None
 
 
 class OverlayfsMountContext(MountContext):
