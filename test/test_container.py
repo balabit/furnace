@@ -160,6 +160,10 @@ def test_using_container_with_host_network(rootfs_for_testing, tmpdir_factory):
     host_resolvconf_content = Path('/etc/resolv.conf').read_bytes()
     with ContainerContext(rootfs_for_testing) as cnt:
         cnt.run(["/bin/ls", "/"], check=True)
+
+        with pytest.raises(OSError, message="'/etc/resolv.conf' should be mounted readonly"):
+            rootfs_for_testing.joinpath('etc', 'resolv.conf').touch()
+
         container_resolvconf_content = rootfs_for_testing.joinpath('etc', 'resolv.conf').read_bytes()
 
     assert host_resolvconf_content == container_resolvconf_content, \
