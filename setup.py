@@ -46,6 +46,9 @@ setup(
         'Topic :: System',
     ],
     packages=find_packages(include=["furnace*"]),
+    entry_points={
+        'console_scripts': ['furnace=furnace.cli:main'],
+    },
     extras_require={
         'dev': Path('requirements-dev.txt').read_text()
     },
