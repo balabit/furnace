@@ -24,6 +24,7 @@ import subprocess
 import threading
 from pathlib import Path
 
+from furnace.config import BindMount
 from furnace.context import ContainerContext
 from furnace.libc import is_mount_point
 from furnace.utils import BindMountContext, OverlayfsMountContext
@@ -203,3 +204,20 @@ def test_thread_support(rootfs_for_testing):
         with ContainerContext(rootfs_for_testing) as cnt:
             cnt.run(['echo', 'Hello world'])
             cnt.Popen(['echo', 'Hello Popen']).wait()
+
+
+def test_bind_mounts(rootfs_for_testing, tmpdir):
+    with tmpdir.join("test_file").open("w") as f:
+        f.write("Test data")
+    bind_mounts = [
+        BindMount(Path(str(tmpdir)), Path('mounted', 'multiple', 'dirs'), False),
+        BindMount(Path(str(tmpdir)), Path('mounted_ro'), True),
+    ]
+
+    with ContainerContext(rootfs_for_testing, bind_mounts=bind_mounts) as cnt:
+        output = cnt.run(['cat', '/mounted/multiple/dirs/test_file'], check=True, stdout=subprocess.PIPE).stdout
+        assert output == b"Test data"
+        output = cnt.run(['cat', '/mounted_ro/test_file'], check=True, stdout=subprocess.PIPE).stdout
+        assert output == b"Test data"
+        result = cnt.run(['touch', '/mounted_ro/test_file'])
+        assert result.returncode != 0, "Touch should fail, because mounted_ro should be read-only"

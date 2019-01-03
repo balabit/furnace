@@ -175,8 +175,6 @@ class ContainerContext:
             destination.mkdir(parents=True, exist_ok=True)
 
     def __enter__(self):
-        self.pid1.start()
-        self.setns_context = SetnsContext(self.pid1.pid)
         self.bind_mount_contexts = contextlib.ExitStack()
         for bind_mount in self.bind_mounts:
             self.create_target(bind_mount.source, self.root_dir.joinpath(bind_mount.destination))
@@ -185,6 +183,8 @@ class ContainerContext:
                 self.root_dir.joinpath(bind_mount.destination),
                 bind_mount.readonly
             ))
+        self.pid1.start()
+        self.setns_context = SetnsContext(self.pid1.pid)
         return self
 
     def __exit__(self, type, value, traceback):
