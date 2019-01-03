@@ -59,6 +59,9 @@ def test_container_basic(rootfs_for_testing):
             '(init, ps, and possibly bash that runs ps).' \
             'Is it even contained? Is the proper /proc mounted?'
 
+        false_output = cnt.run(['sh', '-c', 'exit 42'])
+        assert false_output.returncode == 42, "Return codes of command should be preserved"
+
     assert cwd == os.getcwd(), "Container should not touch CWD"
 
 
