@@ -28,18 +28,30 @@ from socket import sethostname
 from pathlib import Path
 
 from furnace.libc import unshare, mount, umount2, non_caching_getpid, pivot_root, is_mount_point, \
-    MS_BIND, MS_REC, MS_SLAVE, CLONE_NEWPID, CLONE_NEWNET, MNT_DETACH
-from furnace.config import NAMESPACES, CONTAINER_MOUNTS, CONTAINER_DEVICE_NODES, HOSTNAME
+    MS_BIND, MS_REC, MS_SLAVE, MS_REMOUNT, MS_RDONLY, CLONE_NEWPID, CLONE_NEWNET, MNT_DETACH
+from furnace.config import NAMESPACES, CONTAINER_MOUNTS, CONTAINER_DEVICE_NODES, HOSTNAME, BindMount
 
 logger = logging.getLogger("container.pid1")
 
 
 class PID1:
-    def __init__(self, root_dir: Path, control_read, control_write, isolate_networking):
+    def __init__(self, root_dir, control_read, control_write, isolate_networking, bind_mounts):
         self.control_read = control_read
         self.control_write = control_write
-        self.root_dir = root_dir.resolve()
+        self.root_dir = Path(root_dir).resolve()
         self.isolate_networking = isolate_networking
+        self.bind_mounts = self.convert_bind_mounts_parameter(bind_mounts)
+
+    @classmethod
+    def convert_bind_mounts_parameter(cls, bind_mounts):
+        result = []
+        for source, destination, read_only in bind_mounts:
+            source = Path(source)
+            destination = Path(destination)
+            if destination.is_absolute():
+                destination = destination.relative_to("/")
+            result.append(BindMount(source, destination, read_only))
+        return result
 
     def enable_zombie_reaping(self):
         # We are pid 1, so we have to take care of orphaned processes
@@ -48,11 +60,34 @@ class PID1:
         # and get rid of zombies automatically
         signal.signal(signal.SIGCHLD, signal.SIG_IGN)
 
+    @classmethod
+    def create_mount_target(cls, source, destination):
+        if source.is_file():
+            if destination.is_symlink():
+                destination.unlink()
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.touch()
+        else:
+            destination.mkdir(parents=True, exist_ok=True)
+
+    def create_bind_mounts(self):
+        for source, relative_destination, read_only in self.bind_mounts:
+            destination = self.root_dir.joinpath(relative_destination)
+            self.create_mount_target(source, destination)
+            mount(source, destination, None, MS_BIND, None)
+            if read_only:
+                # "Read-only bind mounts" are actually an illusion, a special feature of the kernel,
+                # which is why we have to make the bind mount read-only in a separate call.
+                # See https://lwn.net/Articles/281157/
+                flags = MS_REMOUNT | MS_BIND | MS_RDONLY
+                mount(Path(), destination, None, flags, None)
+
     def setup_root_mount(self):
         # SLAVE means that mount events will get inside the container, but
         # mounting something inside will not leak out.
         # Use PRIVATE to not let outside events propagate in
         mount(Path("none"), Path("/"), None, MS_REC | MS_SLAVE, None)
+        self.create_bind_mounts()
         if not is_mount_point(self.root_dir):
             mount(self.root_dir, self.root_dir, None, MS_BIND, None)
         old_root_dir = self.root_dir.joinpath('old_root')
@@ -149,5 +184,6 @@ class PID1:
 
 if __name__ == "__main__":
     args = json.loads(sys.argv[1])
-    pid1 = PID1(Path(args['root_dir']), args['control_read'], args['control_write'], args['isolate_networking'])
+    logger.setLevel(args.pop("loglevel"))
+    pid1 = PID1(**args)
     sys.exit(pid1.run())
