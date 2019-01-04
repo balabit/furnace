@@ -141,8 +141,8 @@ CONTAINER_DEVICE_NODES = [
 
 HOST_NETWORK_BIND_MOUNTS = [
     BindMount(
-        source=Path('/etc/resolv.conf'),            # absolute path on host machine
-        destination=Path('etc', 'resolv.conf'),     # relative path in container
+        source=Path('/etc/resolv.conf'),          # path on host machine
+        destination=Path('/etc/resolv.conf'),     # path in container
         readonly=True,
     ),
 ]
