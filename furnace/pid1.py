@@ -29,7 +29,7 @@ from pathlib import Path
 
 from furnace.libc import unshare, mount, umount2, non_caching_getpid, pivot_root, is_mount_point, \
     MS_BIND, MS_REC, MS_SLAVE, MS_REMOUNT, MS_RDONLY, CLONE_NEWPID, CLONE_NEWNET, MNT_DETACH
-from furnace.config import NAMESPACES, CONTAINER_MOUNTS, CONTAINER_DEVICE_NODES, HOSTNAME, BindMount
+from furnace.config import NAMESPACES, CONTAINER_MOUNTS, CONTAINER_DEVICE_NODES, HOSTNAME, BindMount, DeviceNode
 
 logger = logging.getLogger("container.pid1")
 
@@ -41,6 +41,7 @@ class PID1:
         self.root_dir = Path(root_dir).resolve()
         self.isolate_networking = isolate_networking
         self.bind_mounts = self.convert_bind_mounts_parameter(bind_mounts)
+        self.loop_devices = list(self.get_loop_devices())
 
     @classmethod
     def convert_bind_mounts_parameter(cls, bind_mounts):
@@ -136,8 +137,8 @@ class PID1:
 
     def create_loop_devices(self):
         self.create_device_node('loop-control', 10, 237, 0o660)
-        for i in range(8):
-            self.create_device_node('loop{}'.format(i), 7, i, 0o660, is_block_device=True)
+        for loop in self.loop_devices:
+            self.create_device_node(loop.name, 7, loop.minor, 0o660, is_block_device=True)
 
     def umount_old_root(self):
         umount2('/old_root', MNT_DETACH)
@@ -180,6 +181,13 @@ class PID1:
         os.read(self.control_read, 1)
         logger.debug("Control pipe closed, stopping")
         return 0
+
+    # NOTE: use only before create_namespaces()
+    def get_loop_devices(self):
+        for loop_path in Path('/dev').glob('loop[0-9]*'):
+            major, minor = divmod(os.stat(loop_path).st_rdev, 256)
+            if major == 7:  # it's a loop device
+                yield DeviceNode(name=loop_path.name, major=major, minor=minor)
 
 
 if __name__ == "__main__":
