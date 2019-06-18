@@ -185,7 +185,7 @@ class PID1:
     # NOTE: use only before create_namespaces()
     def get_loop_devices(self):
         for loop_path in Path('/dev').glob('loop[0-9]*'):
-            major, minor = divmod(os.stat(loop_path).st_rdev, 256)
+            major, minor = divmod(os.stat(str(loop_path)).st_rdev, 256)
             if major == 7:  # it's a loop device
                 yield DeviceNode(name=loop_path.name, major=major, minor=minor)
 
