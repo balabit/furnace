@@ -155,7 +155,7 @@ class SetnsContext:
 
 
 class ContainerContext:
-    def __init__(self, root_dir: Union[str, Path], *, isolate_networking: bool=False, bind_mounts: List[BindMount]=None):
+    def __init__(self, root_dir: Union[str, Path], *, isolate_networking: bool = False, bind_mounts: List[BindMount] = None):
         if not isinstance(root_dir, Path):
             root_dir = Path(root_dir)
         self.root_dir = root_dir.resolve()
@@ -189,6 +189,6 @@ class ContainerContext:
         self.run(
             ['bash', '--norc', '--noprofile', '-i'],
             env={
-                'PS1': 'furnace-debug@{} \033[32m\w\033[0m # '.format(virtual_hostname)
+                'PS1': r'furnace-debug@{} \033[32m\w\033[0m # '.format(virtual_hostname)
             }
         )
