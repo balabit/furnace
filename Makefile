@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2017 Balabit
+# Copyright (c) 2013-2020 Balabit
 #
 # This file is part of Furnace.
 #
@@ -42,6 +42,11 @@ lint: dev
 
 check-copyright:
 	test/check_copyright_headers.py
+
+# Update requirements files for setup.py
+update-requirements: $(VIRTUALENV)/bin/python3
+	$(VIRTUALENV)/bin/pip3 install --upgrade pip-tools
+	$(VIRTUALENV)/bin/pip-compile --no-emit-trusted-host --no-index --upgrade --output-file requirements-dev.txt requirements-dev.in
 
 # Run tests
 check: check-copyright dev

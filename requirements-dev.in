@@ -1,0 +1,5 @@
+autopep8==1.3.3
+flake8==3.5.0
+pep8==1.7.1
+pytest-cov==2.5.1   # Note: do not sort the list: pytest-cov must be before pytest
+pytest==3.2.3
