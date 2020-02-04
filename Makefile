@@ -20,7 +20,7 @@
 .PHONY: autocs cs check check_copyright install dev clean doc
 
 VIRTUALENV ?= .venv
-PEP8 ?= $(VIRTUALENV)/bin/python3 -m pep8
+PYCODESTYLE ?= $(VIRTUALENV)/bin/python3 -m pycodestyle
 AUTOPEP8 ?= $(VIRTUALENV)/bin/python3 -m autopep8
 FLAKE8 ?= $(VIRTUALENV)/bin/python3 -m flake8
 
@@ -35,7 +35,7 @@ autocs-diff: dev
 
 # Coding style check
 cs: dev
-	$(PEP8)
+	$(PYCODESTYLE)
 
 lint: dev
 	$(FLAKE8)
