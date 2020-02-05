@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2016-2017 Balabit
+# Copyright (c) 2016-2020 Balabit
 #
 # This file is part of Furnace.
 #
@@ -51,7 +51,7 @@ def rootfs_for_testing(debootstrapped_dir, tmpdir_factory):
 def test_container_basic(rootfs_for_testing):
     cwd = os.getcwd()
     with ContainerContext(rootfs_for_testing) as cnt:
-        ps_output = cnt.run(['ps', '-e', '-o', 'pid,command', '--no-headers'], check=True, stdout=subprocess.PIPE).stdout
+        ps_output = cnt.run(['/bin/ps', '-e', '-o', 'pid,command', '--no-headers'], check=True, stdout=subprocess.PIPE).stdout
         ps_output = ps_output.decode('utf-8').split('\n')
         assert cwd == os.getcwd(), "Container.run() should not touch CWD"
         assert len(ps_output) > 0, 'There should be at least one process in the container (the ps). Might "ps" have failed?'
@@ -60,7 +60,7 @@ def test_container_basic(rootfs_for_testing):
             '(init, ps, and possibly bash that runs ps).' \
             'Is it even contained? Is the proper /proc mounted?'
 
-        false_output = cnt.run(['sh', '-c', 'exit 42'])
+        false_output = cnt.run(['/bin/sh', '-c', 'exit 42'])
         assert false_output.returncode == 42, "Return codes of command should be preserved"
 
     assert cwd == os.getcwd(), "Container should not touch CWD"
@@ -85,13 +85,13 @@ def test_mounts_visible_inside_container(rootfs_for_testing, tmpdir):
         mounted_after_path = rootfs_for_testing.joinpath('mounted_after')
         mounted_after_path.mkdir()
         with BindMountContext(Path(str(tmpdir)), mounted_after_path):
-            output = cnt.run(['cat', '/mounted_after/test_file'], check=True, stdout=subprocess.PIPE).stdout
+            output = cnt.run(['/bin/cat', '/mounted_after/test_file'], check=True, stdout=subprocess.PIPE).stdout
             assert output == b"Test data"
 
 
 def test_files_made_in_container_visible_outside(rootfs_for_testing):
     with ContainerContext(rootfs_for_testing) as cnt:
-        cnt.run(['dd', 'if=/dev/zero', 'of=/test_file', 'bs=128', 'count=1'], check=True)
+        cnt.run(['/bin/dd', 'if=/dev/zero', 'of=/test_file', 'bs=128', 'count=1'], check=True)
         with rootfs_for_testing.joinpath('test_file').open('rb') as f:
             file_data = f.read()
         assert file_data == b'\0' * 128
@@ -99,10 +99,10 @@ def test_files_made_in_container_visible_outside(rootfs_for_testing):
 
 def test_lingering_processes_are_killed(rootfs_for_testing):
     with ContainerContext(rootfs_for_testing) as cnt:
-        cnt.run(['bash', '-c', 'sleep 31337 >/dev/null 2>/dev/null&'], check=True)
-        ps_output = subprocess.run(['ps', 'aux'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+        cnt.run(['/bin/bash', '-c', '/bin/sleep 31337 >/dev/null 2>/dev/null&'], check=True)
+        ps_output = subprocess.run(['/bin/ps', 'aux'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
         assert 'sleep 31337' in ps_output, 'The sleep should be running in the container'
-    ps_output = subprocess.run(['ps', 'aux'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+    ps_output = subprocess.run(['/bin/ps', 'aux'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
     assert 'sleep 31337' not in ps_output, 'The sleep should no longer be running'
 
 
@@ -110,41 +110,41 @@ def test_zombies_are_killed(rootfs_for_testing):
     with ContainerContext(rootfs_for_testing) as cnt:
         # the || true is needed, otehrwise bash will exec the kill
         try:
-            cnt.run(['bash', '-c', 'bash -c "kill -9 $$ || true" || true'], check=True)
+            cnt.run(['/bin/bash', '-c', '/bin/bash -c "kill -9 $$ || true" || true'], check=True)
         except subprocess.CalledProcessError:
             pass
-        ps_output = cnt.run(['ps', 'aux'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+        ps_output = cnt.run(['/bin/ps', 'aux'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
         assert '<defunct>' not in ps_output, ''
 
 
 def test_lock_dirs_are_present(rootfs_for_testing):
     with ContainerContext(rootfs_for_testing) as cnt:
-        cnt.run(['test', '-e', '/var/lock'], check=True)
-        cnt.run(['test', '-e', '/run/lock'], check=True)
+        cnt.run(['/usr/bin/test', '-e', '/var/lock'], check=True)
+        cnt.run(['/usr/bin/test', '-e', '/run/lock'], check=True)
         # no assert, because the previous two commands would have thrown an Exception on error
 
 
 def test_networking_is_isolated_when_asked(rootfs_for_testing):
     with ContainerContext(rootfs_for_testing, isolate_networking=True) as cnt:
-        ip_output = cnt.run(['ip', 'address', 'list'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+        ip_output = cnt.run(['/bin/ip', 'address', 'list'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
         assert re.search("^1: lo", ip_output, flags=re.MULTILINE) is not None, "Loopback interface should be present"
         assert re.search("^2: ", ip_output, flags=re.MULTILINE) is None, "No other interfaces should be present"
 
 
 def test_networking_is_not_isolated_when_asked(rootfs_for_testing):
     with ContainerContext(rootfs_for_testing, isolate_networking=False) as cnt:
-        ip_output = cnt.run(['ip', 'address', 'list'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+        ip_output = cnt.run(['/bin/ip', 'address', 'list'], check=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
         assert re.search("^1: lo", ip_output, flags=re.MULTILINE) is not None, "Loopback interface should be present"
         assert re.search("^2: ", ip_output, flags=re.MULTILINE) is not None, "At least one other interface should be present"
 
 
 def test_loop_mounts_work(rootfs_for_testing):
     with ContainerContext(rootfs_for_testing) as cnt:
-        cnt.run(['dd', 'if=/dev/zero', 'of=/disk.img', 'bs=1M', 'count=10'], check=True)
-        cnt.run(['mkfs.ext4', '/disk.img'], check=True)
+        cnt.run(['/bin/dd', 'if=/dev/zero', 'of=/disk.img', 'bs=1M', 'count=10'], check=True)
+        cnt.run(['/sbin/mkfs.ext4', '/disk.img'], check=True)
         rootfs_for_testing.joinpath('mounted').mkdir()
-        cnt.run(['mount', '-o', 'loop', '/disk.img', '/mounted'], check=True)
-        cnt.run(['touch', '/mounted/test.file'], check=True)
+        cnt.run(['/bin/mount', '-o', 'loop', '/disk.img', '/mounted'], check=True)
+        cnt.run(['/bin/touch', '/mounted/test.file'], check=True)
         # no assert, because the previous two commands would have thrown an Exception on error
 
 
@@ -167,7 +167,7 @@ def test_using_container_with_host_network(rootfs_for_testing, tmpdir_factory):
         container_resolvconf_path.unlink()
     with ContainerContext(rootfs_for_testing) as cnt:
         cnt.run(["/bin/ls", '-la', "/"], check=True)
-        cnt.run(["mount"], check=True)
+        cnt.run(["/bin/mount"], check=True)
 
         touch_result = cnt.run(["/bin/touch", "/etc/resolv.conf"])
         assert touch_result.returncode != 0, "Touch should fail on resolv.conf, as it should be read-only"
@@ -206,8 +206,8 @@ class ThreadForTesting(threading.Thread):
 def test_thread_support(rootfs_for_testing):
     with ThreadForTesting():
         with ContainerContext(rootfs_for_testing) as cnt:
-            cnt.run(['echo', 'Hello world'])
-            cnt.Popen(['echo', 'Hello Popen']).wait()
+            cnt.run(['/bin/echo', 'Hello world'])
+            cnt.Popen(['/bin/echo', 'Hello Popen']).wait()
 
 
 def test_bind_mounts(rootfs_for_testing, tmpdir):
@@ -221,15 +221,15 @@ def test_bind_mounts(rootfs_for_testing, tmpdir):
     ]
 
     with ContainerContext(rootfs_for_testing, bind_mounts=bind_mounts) as cnt:
-        output = cnt.run(['cat', '/mounted/multiple/dirs/test_file'], check=True, stdout=subprocess.PIPE).stdout
+        output = cnt.run(['/bin/cat', '/mounted/multiple/dirs/test_file'], check=True, stdout=subprocess.PIPE).stdout
         assert output == b"Test data"
-        output = cnt.run(['cat', '/mounted_ro/test_file'], check=True, stdout=subprocess.PIPE).stdout
+        output = cnt.run(['/bin/cat', '/mounted_ro/test_file'], check=True, stdout=subprocess.PIPE).stdout
         assert output == b"Test data"
-        output = cnt.run(['cat', '/mounted/as/file'], check=True, stdout=subprocess.PIPE).stdout
+        output = cnt.run(['/bin/cat', '/mounted/as/file'], check=True, stdout=subprocess.PIPE).stdout
         assert output == b"Test data"
-        output = cnt.run(['cat', '/mounted/as/absolute/test_file'], check=True, stdout=subprocess.PIPE).stdout
+        output = cnt.run(['/bin/cat', '/mounted/as/absolute/test_file'], check=True, stdout=subprocess.PIPE).stdout
         assert output == b"Test data"
-        result = cnt.run(['touch', '/mounted_ro/test_file'])
+        result = cnt.run(['/bin/touch', '/mounted_ro/test_file'])
         assert result.returncode != 0, "Touch should fail, because mounted_ro should be read-only"
 
         assert not rootfs_for_testing.joinpath('mounted_ro', 'test_file').exists(), \
@@ -243,11 +243,11 @@ def test_ro_bind_mounts_from_outside(rootfs_for_testing, tmpdir):
     mounted_before_path = rootfs_for_testing.joinpath('mounted_ro')
     mounted_before_path.mkdir()
     with BindMountContext(Path(str(tmpdir)), mounted_before_path, read_only=True):
-        with pytest.raises(OSError, message="mounted_ro should be mounted readonly"):
+        with pytest.raises(OSError):
             rootfs_for_testing.joinpath('mounted_ro', 'test_file').touch()
-
+            pytest.fail("mounted_ro should be mounted readonly")
         with ContainerContext(rootfs_for_testing) as cnt:
-            output = cnt.run(['cat', '/mounted_ro/test_file'], check=True, stdout=subprocess.PIPE).stdout
+            output = cnt.run(['/bin/cat', '/mounted_ro/test_file'], check=True, stdout=subprocess.PIPE).stdout
             assert output == b"Test data"
-            result = cnt.run(['touch', '/mounted_ro/test_file'])
+            result = cnt.run(['/bin/touch', '/mounted_ro/test_file'])
             assert result.returncode != 0, "Touch should fail, because mounted_ro should be read-only"
