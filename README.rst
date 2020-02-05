@@ -122,7 +122,10 @@ Setting up a development environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To set up a virtualenv with all the necessary tools for development,
-simply run
+install the GNU make tool and the python3-venv package (it is supposed to be
+part of the standard python3 library, but on Ubuntu systems is an invidual
+package).
+Then simply run:
 
 ::
 
@@ -135,7 +138,8 @@ Running tests
 ~~~~~~~~~~~~~
 
 During and after development, you usually want to run both coding style
-checks, and integration tests:
+checks, and integration tests. Make sure if the 'loop' kernel module has been
+loaded before you run the integration tests.
 
 ::
 
