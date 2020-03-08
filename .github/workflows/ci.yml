@@ -1,18 +1,21 @@
-name: Furnace CI
+name: build
 
 on: [push]
 
 jobs:
-  build:
-
+  test:
+    name: Test with python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.5', '3.6', '3.7', '3.8']
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.8
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v1
       with:
-        python-version: 3.8
+        python-version: ${{ matrix.python-version }}
     - name: Bootstrap test environment
       run: |
         sudo apt update
