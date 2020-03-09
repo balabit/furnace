@@ -3,3 +3,4 @@ flake8
 pycodestyle
 pytest-cov  # Note: do not sort the list: pytest-cov must be before pytest
 pytest
+anybadge
