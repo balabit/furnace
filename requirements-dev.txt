@@ -4,6 +4,7 @@
 #
 #    pip-compile --no-emit-trusted-host --no-index --output-file=requirements-dev.txt requirements-dev.in
 #
+anybadge==1.6.2           # via -r requirements-dev.in
 attrs==19.3.0             # via pytest
 autopep8==1.5             # via -r requirements-dev.in
 coverage==5.0.3           # via pytest-cov

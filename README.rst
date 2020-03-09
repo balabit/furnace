@@ -3,6 +3,11 @@ Furnace
 
 A lightweight pure-python container implementation.
 
+.. |build_status| image:: https://github.com/balabit/furnace/workflows/build/badge.svg
+.. |python_support| image:: python-support.svg
+
+|build_status| |python_support|
+
 It is a wrapper around the Linux namespace functionality through libc
 functions like ``unshare()``, ``nsenter()`` and ``mount()``. You can
 think of it as a sturdier chroot replacement, where cleanup is easy (no
