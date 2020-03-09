@@ -5,19 +5,19 @@
 #    pip-compile --no-emit-trusted-host --no-index --output-file=requirements-dev.txt requirements-dev.in
 #
 attrs==19.3.0             # via pytest
-autopep8==1.5
+autopep8==1.5             # via -r requirements-dev.in
 coverage==5.0.3           # via pytest-cov
 entrypoints==0.3          # via flake8
-flake8==3.7.9
+flake8==3.7.9             # via -r requirements-dev.in
 mccabe==0.6.1             # via flake8
 more-itertools==8.2.0     # via pytest
-packaging==20.1           # via pytest
+packaging==20.3           # via pytest
 pluggy==0.13.1            # via pytest
 py==1.8.1                 # via pytest
-pycodestyle==2.5.0
+pycodestyle==2.5.0        # via -r requirements-dev.in, autopep8, flake8
 pyflakes==2.1.1           # via flake8
 pyparsing==2.4.6          # via packaging
-pytest-cov==2.8.1
-pytest==5.3.5
+pytest-cov==2.8.1         # via -r requirements-dev.in
+pytest==5.3.5             # via -r requirements-dev.in, pytest-cov
 six==1.14.0               # via packaging
 wcwidth==0.1.8            # via pytest
