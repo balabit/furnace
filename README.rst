@@ -1,4 +1,4 @@
-Furnace
+Furnace X
 =======
 
 A lightweight pure-python container implementation.
