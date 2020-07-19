@@ -18,10 +18,14 @@
 #
 
 import pytest
+import sys
 
 from pathlib import Path
 
 
-@pytest.fixture
-def tmpdir(tmpdir):
-    yield Path(str(tmpdir))
+# NOTE: In Python versions before 3.6, pytest uses pathlib2
+# instead of pathlib, which are not compatible with each other.
+if sys.version_info < (3, 6):
+    @pytest.fixture
+    def tmp_path(tmp_path):
+        yield Path(str(tmp_path))

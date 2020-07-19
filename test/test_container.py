@@ -31,21 +31,21 @@ from furnace.utils import BindMountContext, OverlayfsMountContext
 
 
 @pytest.fixture(scope="session")
-def debootstrapped_dir(tmpdir_factory):
+def debootstrapped_dir(tmp_path_factory):
     result = os.environ.get("DEBOOTSTRAPPED_DIR")
     if not result:
-        result = str(tmpdir_factory.mktemp('debootstrapped_dir'))
+        result = str(tmp_path_factory.mktemp('debootstrapped_dir'))
         subprocess.run(['debootstrap', 'xenial', result, 'http://archive.ubuntu.com/ubuntu'], check=True)
     yield Path(result)
 
 
 @pytest.fixture
-def rootfs_for_testing(debootstrapped_dir, tmpdir):
-    overlay_workdir = tmpdir.joinpath('overlay_work')
+def rootfs_for_testing(debootstrapped_dir, tmp_path):
+    overlay_workdir = tmp_path.joinpath('overlay_work')
     overlay_workdir.mkdir()
-    overlay_rwdir = tmpdir.joinpath('overlay_rw')
+    overlay_rwdir = tmp_path.joinpath('overlay_rw')
     overlay_rwdir.mkdir()
-    overlay_mounted = tmpdir.joinpath('overlay_mount')
+    overlay_mounted = tmp_path.joinpath('overlay_mount')
     overlay_mounted.mkdir()
     with OverlayfsMountContext([debootstrapped_dir], overlay_rwdir, overlay_workdir, overlay_mounted):
         yield overlay_mounted
@@ -81,12 +81,12 @@ def test_container_rootfs_is_mountpoint(rootfs_for_testing):
         pass
 
 
-def test_mounts_visible_inside_container(rootfs_for_testing, tmpdir):
+def test_mounts_visible_inside_container(rootfs_for_testing, tmp_path):
     with ContainerContext(rootfs_for_testing) as cnt:
-        tmpdir.joinpath('test_file').write_text('Test data')
+        tmp_path.joinpath('test_file').write_text('Test data')
         mounted_after_path = rootfs_for_testing.joinpath('mounted_after')
         mounted_after_path.mkdir()
-        with BindMountContext(tmpdir, mounted_after_path):
+        with BindMountContext(tmp_path, mounted_after_path):
             output = cnt.run(['/bin/cat', '/mounted_after/test_file'], check=True, stdout=subprocess.PIPE).stdout
             assert output == b"Test data"
 
@@ -150,12 +150,12 @@ def test_loop_mounts_work(rootfs_for_testing):
         # no assert, because the previous two commands would have thrown an Exception on error
 
 
-def test_using_container_does_not_touch_files_if_network_isolated(debootstrapped_dir, tmpdir):
-    overlay_workdir = tmpdir.joinpath('overlay_work')
+def test_using_container_does_not_touch_files_if_network_isolated(debootstrapped_dir, tmp_path):
+    overlay_workdir = tmp_path.joinpath('overlay_work')
     overlay_workdir.mkdir()
-    overlay_rwdir = tmpdir.joinpath('overlay_rw')
+    overlay_rwdir = tmp_path.joinpath('overlay_rw')
     overlay_rwdir.mkdir()
-    overlay_mounted = tmpdir.joinpath('overlay_mount')
+    overlay_mounted = tmp_path.joinpath('overlay_mount')
     overlay_mounted.mkdir()
     with OverlayfsMountContext([debootstrapped_dir], overlay_rwdir, overlay_workdir, overlay_mounted):
         with ContainerContext(overlay_mounted, isolate_networking=True) as cnt:
@@ -165,7 +165,7 @@ def test_using_container_does_not_touch_files_if_network_isolated(debootstrapped
     assert len(modified_files) == 0, "No files should have been modified because of container run if network isolated"
 
 
-def test_using_container_with_host_network(rootfs_for_testing, tmpdir):
+def test_using_container_with_host_network(rootfs_for_testing, tmp_path):
     host_resolvconf_content = Path('/etc/resolv.conf').read_bytes()
     container_resolvconf_path = rootfs_for_testing.joinpath('etc', 'resolv.conf')
     if container_resolvconf_path.exists():
@@ -215,13 +215,13 @@ def test_thread_support(rootfs_for_testing):
             cnt.Popen(['/bin/echo', 'Hello Popen']).wait()
 
 
-def test_bind_mounts(rootfs_for_testing, tmpdir):
-    tmpdir.joinpath('test_file').write_text('Test data')
+def test_bind_mounts(rootfs_for_testing, tmp_path):
+    tmp_path.joinpath('test_file').write_text('Test data')
     bind_mounts = [
-        BindMount(tmpdir, Path('mounted', 'multiple', 'dirs'), False),
-        BindMount(tmpdir, Path('mounted_ro'), True),
-        BindMount(tmpdir.joinpath('test_file'), Path('mounted', 'as', 'file'), False),
-        BindMount(tmpdir, Path('/', 'mounted', 'as', 'absolute'), False),
+        BindMount(tmp_path, Path('mounted', 'multiple', 'dirs'), False),
+        BindMount(tmp_path, Path('mounted_ro'), True),
+        BindMount(tmp_path.joinpath('test_file'), Path('mounted', 'as', 'file'), False),
+        BindMount(tmp_path, Path('/', 'mounted', 'as', 'absolute'), False),
     ]
 
     with ContainerContext(rootfs_for_testing, bind_mounts=bind_mounts) as cnt:
@@ -240,12 +240,12 @@ def test_bind_mounts(rootfs_for_testing, tmpdir):
             "Bind mounts done by ContainerContext should not be visible outside of the container"
 
 
-def test_ro_bind_mounts_from_outside(rootfs_for_testing, tmpdir):
-    tmpdir.joinpath('test_file').write_text('Test data')
+def test_ro_bind_mounts_from_outside(rootfs_for_testing, tmp_path):
+    tmp_path.joinpath('test_file').write_text('Test data')
 
     mounted_before_path = rootfs_for_testing.joinpath('mounted_ro')
     mounted_before_path.mkdir()
-    with BindMountContext(tmpdir, mounted_before_path, read_only=True):
+    with BindMountContext(tmp_path, mounted_before_path, read_only=True):
         with pytest.raises(OSError):
             rootfs_for_testing.joinpath('mounted_ro', 'test_file').touch()
             pytest.fail("mounted_ro should be mounted readonly")
