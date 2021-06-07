@@ -46,7 +46,8 @@ check-copyright:
 # Update requirements files for setup.py
 update-requirements: $(VIRTUALENV)/bin/python3
 	$(VIRTUALENV)/bin/pip3 install --upgrade pip-tools
-	$(VIRTUALENV)/bin/pip-compile --no-emit-trusted-host --no-index --upgrade --output-file requirements-dev.txt requirements-dev.in
+	$(VIRTUALENV)/bin/pip-compile --no-emit-trusted-host --no-emit-index-url --upgrade --output-file requirements-dev.txt requirements-dev.in
+
 
 # Run tests
 check: check-copyright dev
