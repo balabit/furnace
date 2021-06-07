@@ -75,8 +75,8 @@ def umount2(target: Path, flags: int):
 def get_all_mounts():
     with Path("/proc/self/mounts").open('rb') as f:
         mounts = []
-        for l in f:
-            mp = l.split(b' ')[1]
+        for line in f:
+            mp = line.split(b' ')[1]
             # unicode_escape is necessary because moutns with special characters are
             # represented with octal escape codes in 'mounts'
             mounts.append(Path(mp.decode('unicode_escape')))
