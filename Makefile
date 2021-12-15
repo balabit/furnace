@@ -74,4 +74,4 @@ bump-version:
 	./bump_version.py
 
 generate-badge:
-	$(VIRTUALENV)/bin/anybadge --value='3.5 | 3.6 | 3.7 | 3.8' --label python --file python-support.svg --overwrite
+	$(VIRTUALENV)/bin/anybadge --value='3.6 | 3.7 | 3.8 | 3.9 | 3.10' --label python --file python-support.svg --overwrite

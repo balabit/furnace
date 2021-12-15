@@ -24,8 +24,8 @@ from setuptools import setup, find_packages
 from furnace.version import get_version
 
 
-if sys.version_info < (3, 5):
-    sys.exit('Python version 3.5+ is required for furnace')
+if sys.version_info < (3, 6):
+    sys.exit('Python version 3.6+ is required for furnace')
 
 with open(os.path.join(os.path.dirname(__file__), 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
@@ -52,5 +52,5 @@ setup(
     package_data={'furnace': [
         'VERSION',
     ]},
-    python_requires=">=3.5",
+    python_requires=">=3.6",
 )
