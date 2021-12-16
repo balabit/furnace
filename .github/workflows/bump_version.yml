@@ -1,0 +1,30 @@
+name: bump version
+
+on: workflow_dispatch
+
+jobs:
+  release:
+    name: Bump Version
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Setup Python 3.8
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install make
+    - name: Bump version
+      run: "echo furnace_version=$(make bump-version) | tee --append $GITHUB_ENV"
+    - name: Create pull request
+      uses: peter-evans/create-pull-request@v3
+      with:
+        commit-message: "Bump version to ${{ env.furnace_version }}"
+        title: "Bump version to ${{ env.furnace_version }}"
+        body:
+        branch: "bump-version-to-v${{ env.furnace_version }}"
+        delete-branch: true
+        token: ${{ secrets.GITHUB_TOKEN }}
