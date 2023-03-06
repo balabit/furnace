@@ -6,7 +6,7 @@
 #
 anybadge==1.9.0
     # via -r requirements-dev.in
-attrs==22.1.0
+attrs==22.2.0
     # via pytest
 autopep8==2.0.0
     # via -r requirements-dev.in
